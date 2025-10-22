@@ -9,14 +9,24 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@fullcalendar/daygrid": "^6.1.19",
     "@fullcalendar/interaction": "^6.1.19",
     "@fullcalendar/react": "^6.1.19",
     "@fullcalendar/timegrid": "^6.1.19",
+    "@hookform/resolvers": "^5.2.2",
+    "@mui/icons-material": "^7.3.4",
+    "@mui/lab": "7.0.1-beta.18",
+    "@mui/material": "^7.3.4",
+    "@mui/material-nextjs": "^7.3.3",
+    "@mui/x-data-grid": "^8.14.1",
+    "@mui/x-date-pickers": "^8.14.1",
     "@prisma/client": "^6.18.0",
     "@tiptap/react": "^3.7.2",
     "@tiptap/starter-kit": "^3.7.2",
     "date-fns": "^4.1.0",
+    "dayjs": "^1.11.18",
     "ical-generator": "^9.0.0",
     "luxon": "^3.7.2",
     "next": "16.0.0",
@@ -35,10 +45,10 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
   },
   "prisma": {
-  "seed": "ts-node --compiler-options {\"module\":\"commonjs\"} prisma/seed.ts"
+    "seed": "ts-node --compiler-options {\"module\":\"commonjs\"} prisma/seed.ts"
   }
 }

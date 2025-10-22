@@ -1,36 +1,65 @@
-import { PrismaClient } from '@prisma/client'
-const prisma = new PrismaClient()
+import Hero from '@/components/Hero'
+import NewsList from '@/components/NewsList'
+import { OpeningHoursCard, QuickLinksCard, NewsletterCard } from '@/components/RightColumn'
+import { Container, Paper, Stack, Typography, Grid } from '@mui/material'
+import ButtonLink from '@/components/ButtonLink'
+import { prisma } from '@/lib/db'
 
-export default async function Home() {
-  const [members, events] = await Promise.all([
-    prisma.member.findMany({ orderBy: { createdAt: 'desc' } }),
-    prisma.event.findMany({ orderBy: { startsAt: 'asc' } }),
-  ])
+export default async function HomePage() {
+  // mock/DB data – můžeš nahradit vlastní tabulkou "news_posts"
+  const eventsCount = await prisma.event.count()
+  const news = [
+    { id: '1', title: 'Partnerství pro rozvoj akademie', img: '/next.svg' },
+    { id: '2', title: 'Video z našich akcí :-)', img: '/vercel.svg' },
+  ]
 
   return (
-    <main className="p-6 max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Klub – přehled</h1>
+    <>
+      <Hero />
 
-      <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-2">Členové</h2>
-        <ul className="list-disc pl-5">
-          {members.map(m => (
-            <li key={m.id}>{m.name} ({m.email})</li>
-          ))}
-        </ul>
-      </section>
+      <Container sx={{ my: 4 }}>
+        <Grid container spacing={3}>
+          {/* Hlavní sloupec */}
+          <Grid size={{ xs:12, md:8}}>
+            <Stack spacing={3}>
+              <Paper sx={{ p: 2 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+                  <Typography variant="h5">Čerstvé novinky</Typography>
+                  <ButtonLink href="/news" variant="text">Všechny novinky</ButtonLink>
+                </Stack>
+                <NewsList items={news} />
+              </Paper>
 
-      <section>
-        <h2 className="text-xl font-semibold mb-2">Akce</h2>
-        <ul className="list-disc pl-5">
-          {events.map(e => (
-            <li key={e.id}>
-              {e.title} — {new Date(e.startsAt).toLocaleString('cs-CZ')}
-              {' '}<a className="underline" href={`/api/ics/${e.id}`}>Přidat do kalendáře (.ics)</a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </main>
+              <Paper sx={{ p: 2 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Typography variant="h5">Kalendář akcí</Typography>
+                  <Stack direction="row" spacing={1}>
+                  <ButtonLink href="/calendar" variant="contained" color="secondary">Zobrazit kalendář</ButtonLink>
+                  <ButtonLink href="/api/ics/feed" variant="outlined">iCal feed</ButtonLink>
+                  </Stack>
+                </Stack>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Nadcházejících akcí: {eventsCount}
+                </Typography>
+              </Paper>
+
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="h5" sx={{ mb: 1 }}>Náš tým</Typography>
+                <Typography variant="body2">Krátké představení trenérů / vedení klubu (může být prostý výpis, nebo karty).</Typography>
+              </Paper>
+            </Stack>
+          </Grid>
+
+          {/* Pravý sloupec */}
+          <Grid size={{ xs:12, md:4}}>
+            <Stack spacing={3}>
+              <OpeningHoursCard />
+              <QuickLinksCard />
+              <NewsletterCard />
+            </Stack>
+          </Grid>
+        </Grid>
+      </Container>
+    </>
   )
 }

@@ -1,8 +1,7 @@
-import { PrismaClient } from '@prisma/client'
 import ical from 'ical-generator'
 import { NextResponse } from 'next/server'
+import { prisma } from '../../../../lib/db'
 
-const prisma = new PrismaClient()
 
 export async function GET(
   _req: Request,
