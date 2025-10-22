@@ -1,5 +1,5 @@
-import { prisma } from '../../lib/db'
-import ClientCalendar from './ui'
+import { prisma } from '../../../lib/db'
+import ClientCalendar from '../../../features/calendar/components/CalendarView'
 
 export default async function CalendarPage() {
   const events = await prisma.event.findMany({

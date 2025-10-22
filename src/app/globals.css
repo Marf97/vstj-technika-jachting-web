@@ -24,3 +24,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.fc .fc-daygrid-event, .fc .fc-timegrid-event {
+  border-radius: 8px;
+  padding: 2px 6px;
+}
+.fc .fc-daygrid-day-number { font-weight: 600; }
+.fc .fc-toolbar-title { font-weight: 700; }
+.fc .fc-timegrid-slot { height: 2.2rem; }
