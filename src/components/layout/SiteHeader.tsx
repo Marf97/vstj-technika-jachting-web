@@ -1,6 +1,6 @@
 'use client'
 import { Box, Container, Stack, Toolbar, Typography } from '@mui/material'
-import NavLink from '@/components/NavLink'
+import NavLink from '@/components/ui/NavLink'
 
 export default function SiteHeader() {
   return (

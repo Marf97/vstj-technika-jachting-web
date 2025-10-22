@@ -1,5 +1,5 @@
 import Providers from './providers'
-import AppLayout from '@/components/AppLayout'
+import AppLayout from '@/components/layout/AppLayout'
 
 export const metadata = { title: 'Klub', description: 'Správa klubu' }
 

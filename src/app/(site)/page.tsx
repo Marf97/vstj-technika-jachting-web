@@ -1,8 +1,8 @@
-import Hero from '@/components/Hero'
-import NewsList from '@/components/NewsList'
-import { OpeningHoursCard, QuickLinksCard, NewsletterCard } from '@/components/RightColumn'
+import Hero from '@/components/widgets/Hero'
+import NewsList from '@/components/widgets/NewsList'
+import { OpeningHoursCard, QuickLinksCard, NewsletterCard } from '@/components/widgets/RightColumn'
 import { Container, Paper, Stack, Typography, Grid } from '@mui/material'
-import ButtonLink from '@/components/ButtonLink'
+import ButtonLink from '@/components/ui/ButtonLink'
 import { prisma } from '@/lib/db'
 
 export default async function HomePage() {

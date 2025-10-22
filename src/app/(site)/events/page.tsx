@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db'
 import EventsTable from './ui'
 import { Paper, Stack, Typography } from '@mui/material'
-import ButtonLink from '@/components/ButtonLink'
+import ButtonLink from '@/components/ui/ButtonLink'
 
 export default async function EventsPage() {
   const events = await prisma.event.findMany({
