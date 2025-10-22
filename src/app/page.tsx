@@ -9,8 +9,7 @@ export default async function HomePage() {
   // mock/DB data – můžeš nahradit vlastní tabulkou "news_posts"
   const eventsCount = await prisma.event.count()
   const news = [
-    { id: '1', title: 'Partnerství pro rozvoj akademie', img: '/next.svg' },
-    { id: '2', title: 'Video z našich akcí :-)', img: '/vercel.svg' },
+    { id: '1', title: 'Toto je Náš předseda', img: '/danik.jpg' },
   ]
 
   return (
@@ -24,8 +23,8 @@ export default async function HomePage() {
             <Stack spacing={3}>
               <Paper sx={{ p: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                  <Typography variant="h5">Čerstvé novinky</Typography>
-                  <ButtonLink href="/news" variant="text">Všechny novinky</ButtonLink>
+                  <Typography variant="h5">Novinky</Typography>
+                  <ButtonLink href="/news" variant="text">více</ButtonLink>
                 </Stack>
                 <NewsList items={news} />
               </Paper>
@@ -33,10 +32,7 @@ export default async function HomePage() {
               <Paper sx={{ p: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                   <Typography variant="h5">Kalendář akcí</Typography>
-                  <Stack direction="row" spacing={1}>
                   <ButtonLink href="/calendar" variant="contained" color="secondary">Zobrazit kalendář</ButtonLink>
-                  <ButtonLink href="/api/ics/feed" variant="outlined">iCal feed</ButtonLink>
-                  </Stack>
                 </Stack>
                 <Typography variant="body2" sx={{ mt: 1 }}>
                   Nadcházejících akcí: {eventsCount}
@@ -45,7 +41,7 @@ export default async function HomePage() {
 
               <Paper sx={{ p: 2 }}>
                 <Typography variant="h5" sx={{ mb: 1 }}>Náš tým</Typography>
-                <Typography variant="body2">Krátké představení trenérů / vedení klubu (může být prostý výpis, nebo karty).</Typography>
+                <Typography variant="body2">Daník, Rusáček, Kobík, Péťa Admirál a další banda lidí co se do toho nechali uvrtat</Typography>
               </Paper>
             </Stack>
           </Grid>

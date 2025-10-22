@@ -1,6 +1,6 @@
 'use client'
 import { Box, Container, Stack, Toolbar, Typography } from '@mui/material'
-import ButtonLink from '@/components/ButtonLink'
+import NavLink from '@/components/NavLink'
 
 export default function SiteHeader() {
   return (
@@ -11,14 +11,15 @@ export default function SiteHeader() {
         <Toolbar disableGutters>
           <Container sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
-              VŠTJ Technika – Klub
+              VŠTJ Technika - Jachting ČVUT
             </Typography>
+            
             <Stack direction="row" spacing={1}>
-              <ButtonLink href="/" color="inherit">O&nbsp;nás</ButtonLink>
-              <ButtonLink href="/events" color="inherit">Události</ButtonLink>
-              <ButtonLink href="/calendar" color="inherit">Kalendář</ButtonLink>
-              <ButtonLink href="/members" color="inherit">Členové</ButtonLink>
-              <ButtonLink href="/contact" color="inherit">Kontakt</ButtonLink>
+              <NavLink href="/">O&nbsp;nás</NavLink>
+              <NavLink href="/events">Události</NavLink>
+              <NavLink href="/calendar">Kalendář</NavLink>
+              <NavLink href="/members">Členové</NavLink>
+              <NavLink href="/contact">Kontakt</NavLink>
             </Stack>
           </Container>
         </Toolbar>
