@@ -1,5 +1,6 @@
 import { prisma } from '../../../lib/db'
 import ClientCalendar from '../../../features/calendar/components/CalendarView'
+import Link from 'next/link'
 
 export default async function CalendarPage() {
   const events = await prisma.event.findMany({
@@ -22,7 +23,7 @@ export default async function CalendarPage() {
       
       <ClientCalendar events={fcEvents} />
       <div className="mt-4">
-        <a className="underline" href="/api/ics/feed">Veřejný iCal feed</a>
+        <Link className="underline" href="/api/ics/feed">Veřejný iCal feed</Link>
       </div>
     </main>
   )

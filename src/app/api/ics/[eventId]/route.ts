@@ -1,13 +1,14 @@
 import ical from 'ical-generator'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '../../../../lib/db'
 
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { eventId: string } }
+  _req: NextRequest,
+  ctx: { params : Promise<{ eventId: string }> }
 ) {
-  const event = await prisma.event.findUnique({ where: { id: params.eventId } })
+  const { eventId } = await ctx.params
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
   if (!event) return new NextResponse('Not found', { status: 404 })
 
   const cal = ical({ name: 'Klub – Jednotlivá akce' })
