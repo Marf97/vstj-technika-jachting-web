@@ -5,6 +5,7 @@ import { makeTheme } from '@/theme'
 import DarkModeIcon from '@mui/icons-material/DarkMode'
 import LightModeIcon from '@mui/icons-material/LightMode'
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter'
+import { SessionProvider } from 'next-auth/react'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = React.useState<'light' | 'dark'>('light')
@@ -22,6 +23,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <AppRouterCacheProvider options={{ enableCssLayer: true }}>
+      <SessionProvider>
         <ThemeProvider theme={theme}>
         <CssBaseline />
         {/* jednoduchý přepínač vpravo dole */}
@@ -34,6 +36,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         </div>
         {children}
         </ThemeProvider>
+      </SessionProvider>
     </AppRouterCacheProvider>
   )
 }

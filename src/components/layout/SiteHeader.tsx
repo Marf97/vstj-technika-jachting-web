@@ -1,6 +1,7 @@
 'use client'
 import { Box, Container, Stack, Toolbar, Typography } from '@mui/material'
 import NavLink from '@/components/ui/NavLink'
+import AuthButtons from '../ui/AuthButton'
 
 export default function SiteHeader() {
   return (
@@ -13,6 +14,8 @@ export default function SiteHeader() {
             <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 700 }}>
               VŠTJ Technika - Jachting ČVUT
             </Typography>
+            
+            <AuthButtons />
             
             <Stack direction="row" spacing={1}>
               <NavLink href="/">O&nbsp;nás</NavLink>
