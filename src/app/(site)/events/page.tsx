@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import EventsTable from './ui'
+import EventsTable from '../../../features/events/components/EventsTable'
 import { Paper, Stack, Typography } from '@mui/material'
 import ButtonLink from '@/components/ui/ButtonLink'
 

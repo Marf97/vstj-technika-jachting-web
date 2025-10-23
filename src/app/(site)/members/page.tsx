@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import MembersTable from './ui'
+import MembersTable from '../../../features/members/components/MemberTable'
 import { Paper, Stack, Typography} from '@mui/material'
 import ButtonLink from '@/components/ui/ButtonLink'
 

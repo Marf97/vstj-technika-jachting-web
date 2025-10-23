@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState, useMemo, CSSProperties } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
