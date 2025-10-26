@@ -1,13 +1,15 @@
-import NextAuth from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import Google from "next-auth/providers/google"
-import Credentials from "next-auth/providers/credentials"
-import { prisma } from "@/lib/db"
-import bcrypt from "bcryptjs"
+import NextAuth, { type NextAuthOptions } from "next-auth";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import Google from "next-auth/providers/google";
+import Credentials from "next-auth/providers/credentials";
+import { prisma } from "@/lib/db";
+import { compare } from "bcrypt";
+import { type Adapter } from "next-auth/adapters";
 
-const handler = NextAuth({
-  adapter: PrismaAdapter(prisma),
-  session: { strategy: "database" },
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma) as Adapter,
+  session: { strategy: "jwt" },
+  secret: process.env.AUTH_SECRET,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -34,7 +36,7 @@ const handler = NextAuth({
 
     // Volitelné: e-mail/heslo (Credentials)
     Credentials({
-      name: "Email & Heslo",
+      name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Heslo", type: "password" },
@@ -43,18 +45,47 @@ const handler = NextAuth({
         if (!credentials?.email || !credentials?.password) return null
         const user = await prisma.user.findUnique({ where: { email: credentials.email } })
         if (!user || !user.passwordHash) return null
-        const ok = await bcrypt.compare(credentials.password, user.passwordHash)
+        const ok = await compare(credentials.password, user.passwordHash)
         return ok ? user : null
       },
     }),
   ],
   callbacks: {
-    async session({ session, user }) {
-      // přidej si co chceš (role atd.)
-      session.user.id = user.id
-      return session
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role ?? null;
+        token.emailVerified = user.emailVerified
+        ? user.emailVerified.toISOString()
+        : null;
+      } else if (!token.role && token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email as string },
+          select: { id: true, role: true, emailVerified: true },
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.emailVerified = dbUser.emailVerified
+          ? dbUser.emailVerified.toISOString()
+          : null;
+        }
+      }
+      return token;
     },
-  },
-})
 
-export { handler as GET, handler as POST }
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role ?? null;
+        session.user.emailVerified = token.emailVerified
+        ? new Date(token.emailVerified)
+        : null;
+      }
+      return session;
+    },
+  }
+};
+
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };

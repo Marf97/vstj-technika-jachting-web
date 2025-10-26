@@ -1,32 +1,47 @@
-import { prisma } from '../src/lib/db'
+import { PrismaClient, Role } from "@prisma/client";
+import { hash } from "bcrypt";
+
+const prisma = new PrismaClient();
 
 async function main() {
-  const alice = await prisma.member.upsert({
-    where: { email: 'alice@example.com' },
-    update: {},
-    create: { email: 'alice@example.com', name: 'Alice Example' },
-  })
+  const adminEmail = "admin@example.com";
+  const memberEmail = "member@example.com";
 
-  const now = new Date()
-  const in3days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-  const in3daysPlus2h = new Date(in3days.getTime() + 2 * 60 * 60 * 1000)
+  const [adminPass, memberPass] = await Promise.all([
+    hash("admin123", 10),
+    hash("member123", 10),
+  ]);
 
-  const event = await prisma.event.create({
-    data: {
-      title: 'Úvodní schůze klubu',
-      description: 'Seznámení a plán akcí.',
-      startsAt: in3days,
-      endsAt: in3daysPlus2h,
-      location: 'Klubovna',
-      isPublic: true,
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { role: Role.ADMIN, passwordHash: adminPass, name: "Admin" },
+    create: {
+      email: adminEmail,
+      role: Role.ADMIN,
+      passwordHash: adminPass,
+      name: "Admin",
     },
-  })
+  });
 
-  await prisma.eventRegistration.create({
-    data: { memberId: alice.id, eventId: event.id }
-  })
+  await prisma.user.upsert({
+    where: { email: memberEmail },
+    update: { role: Role.MEMBER, passwordHash: memberPass, name: "Member" },
+    create: {
+      email: memberEmail,
+      role: Role.MEMBER,
+      passwordHash: memberPass,
+      name: "Member",
+    },
+  });
 
-  console.log('Seed done.')
+  console.log("Seed done: admin/member users created.");
 }
 
-main().finally(() => prisma.$disconnect())
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

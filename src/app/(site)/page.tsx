@@ -4,9 +4,17 @@ import { OpeningHoursCard, QuickLinksCard, NewsletterCard } from '@/components/w
 import { Container, Paper, Stack, Typography, Grid } from '@mui/material'
 import ButtonLink from '@/components/ui/ButtonLink'
 import { prisma } from '@/lib/db'
+import { getSession } from "@/lib/auth";
+
+// volitelné – pokud použiješ separátní komponenty bannerů:
+import GuestBanner from "@/components/widgets/GuestBanner";
+import MemberBanner from "@/components/widgets/MemberBanner";
+import AdminBanner from "@/components/widgets/AdminBanner";
 
 export default async function HomePage() {
   // mock/DB data – můžeš nahradit vlastní tabulkou "news_posts"
+  const session = await getSession();
+  const role = session?.user?.role ?? "GUEST";
   const eventsCount = await prisma.event.count()
   const news = [
     { id: '1', title: 'Toto je Náš předseda', img: '/danik.jpg' },
@@ -22,6 +30,9 @@ export default async function HomePage() {
           <Grid size={{ xs:12, md:8}}>
             <Stack spacing={3}>
               <Paper sx={{ p: 2 }}>
+                {role === "GUEST" && <GuestBanner />}
+                {role === "MEMBER" && <MemberBanner />}
+                {role === "ADMIN" && <AdminBanner />}
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                   <Typography variant="h5">Novinky</Typography>
                   <ButtonLink href="/news" variant="text">více</ButtonLink>

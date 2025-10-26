@@ -1,22 +1,18 @@
-import NextAuth, { DefaultSession } from "next-auth"
+import { DefaultSession } from "next-auth";
+import { Role } from "@prisma/client";
 
 declare module "next-auth" {
   interface Session {
     user: {
-      id: string
-      name?: string | null
-      email?: string | null
-      image?: string | null
-      // sem si můžeš přidat role apod.
-    } & DefaultSession["user"]
+      id: string;
+      role?: Role | null;
+      emailVerified?: Date | null;
+    } & DefaultSession["user"];
   }
 
   interface User {
-    id: string
-    name?: string | null
-    email?: string | null
-    image?: string | null
-    // pokud používáš credentials:
-    passwordHash?: string | null
+    id: string;
+    role?: Role | null;
+    emailVerified?: Date | null;
   }
 }

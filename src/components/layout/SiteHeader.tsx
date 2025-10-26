@@ -1,7 +1,8 @@
 'use client'
 import { Box, Container, Stack, Toolbar, Typography } from '@mui/material'
 import NavLink from '@/components/ui/NavLink'
-import AuthButtons from '../ui/AuthButton'
+//import AuthButtons from '../ui/AuthButton'
+import AuthButton from '../auth/AuthButton'
 
 export default function SiteHeader() {
   return (
@@ -15,7 +16,7 @@ export default function SiteHeader() {
               VŠTJ Technika - Jachting ČVUT
             </Typography>
             
-            <AuthButtons />
+            {/*<AuthButtons />*/}
             
             <Stack direction="row" spacing={1}>
               <NavLink href="/">O&nbsp;nás</NavLink>
@@ -23,6 +24,7 @@ export default function SiteHeader() {
               <NavLink href="/calendar">Kalendář</NavLink>
               <NavLink href="/members">Členové</NavLink>
               <NavLink href="/contact">Kontakt</NavLink>
+              <AuthButton className="px-3 py-2 rounded border" />
             </Stack>
           </Container>
         </Toolbar>
