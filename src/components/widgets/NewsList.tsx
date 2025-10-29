@@ -4,7 +4,7 @@ export default function NewsList({ items }: { items: Array<{ id: string; title: 
   return (
     <Grid container spacing={2}>
       {items.map(n => (
-        <Grid size={{xs:12, sm:6, md:4}} key={n.id}>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={n.id}>
           <Card>
             <CardActionArea href={`/news/${n.id}`}>
               {n.img && <CardMedia component="img" height="160" image={n.img} alt={n.title} />}

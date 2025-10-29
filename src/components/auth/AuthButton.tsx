@@ -1,34 +1,58 @@
-"use client";
-import { signOut, useSession } from "next-auth/react";
-import Link from "next/link";
+'use client';
+import * as React from 'react';
+import { signOut, useSession } from 'next-auth/react';
+import { Button } from '@mui/material';
+import AuthDialog from './AuthDialog';
 
-type Props = {
-  className?: string; // pro snadný styling v headeru
-};
+type Props = { className?: string };
 
 export default function AuthButton({ className }: Props) {
   const { data: session, status } = useSession();
-  const loading = status === "loading";
+  const [open, setOpen] = React.useState(false);
+  const loading = status === 'loading';
 
   if (loading) {
-    return <span className={className}>…</span>;
+    return (
+      <Button
+        variant="outlined"
+        color="inherit"
+        size="small"
+        disabled
+        className={className}
+      >
+        …
+      </Button>
+    );
   }
 
   if (!session) {
     return (
-      <Link href="/login" className={className}>
-        Přihlásit
-      </Link>
+      <>
+        <Button
+          onClick={() => setOpen(true)}
+          variant="contained"
+          color="secondary"
+          size="small"
+          className={className}
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+        >
+          Přihlásit
+        </Button>
+        <AuthDialog open={open} onCloseAction={() => setOpen(false)} />
+      </>
     );
   }
 
   return (
-    <button
+    <Button
+      onClick={() => signOut({ callbackUrl: '/' })}
+      variant="contained"
+      color="info"
+      size="small"
       className={className}
-      onClick={() => signOut({ callbackUrl: "/" })}
-      type="button"
+      sx={{ textTransform: 'none', fontWeight: 600 }}
     >
       Odhlásit
-    </button>
+    </Button>
   );
 }
