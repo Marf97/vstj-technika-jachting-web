@@ -21,9 +21,13 @@ export default function NavLink({
           textTransform: 'none',
           fontWeight: 600,
           opacity: active ? 1 : 0.9,
-          border: active ? '1px solid rgba(255,255,255,0.9)' : '2px solid transparent',
-          borderBottom: active ? '3px solid rgba(255,255,255,0.9)' : '2px solid transparent',
-          '&:hover': { backgroundColor: 'rgba(255,255,255,0.12)', opacity: 1 },
+        backgroundColor: active ? 'rgba(255,255,255,0.15)' : 'transparent',
+        transition: 'background-color 0.2s ease',
+        '&:hover': {
+          backgroundColor: active
+            ? 'rgba(255,255,255,0.25)'
+            : 'rgba(255,255,255,0.12)',
+          opacity: 1,},
         }}
       >
         {children}
