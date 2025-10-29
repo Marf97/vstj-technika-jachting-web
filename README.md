@@ -19,48 +19,62 @@ Postaveno na **Next.js (App Router) + TypeScript + MUI** s databází **PostgreS
 
 ```
 .
-├─ prisma/                # schéma DB, migrace, seed
-├─ public/                # statická aktiva (obrázky, svg)
-├─ src/
-│  ├─ app/                # Next.js App Router (pages + API)
-│  │  ├─ (site)/          # veřejné stránky (route group)
-│  │  │  ├─ page.tsx      # homepage
-│  │  │  ├─ calendar/     # /calendar
-│  │  │  ├─ events/       # /events
-│  │  │  └─ members/      # /members, /members/new
-│  │  ├─ api/             # REST/HTTP endpoints (Next route handlers)
-│  │  │  ├─ events/route.ts
-│  │  │  ├─ members/route.ts
-│  │  │  └─ ics/[eventId]/route.ts, ics/feed/route.ts
-│  │  ├─ layout.tsx       # kořenový layout
-│  │  └─ providers.tsx    # Theme provider + MUI cache provider
-│  │
-│  ├─ components/         # sdílené (ne-doménové) komponenty
-│  │  ├─ layout/          # AppLayout, SiteHeader, SiteFooter
-│  │  ├─ ui/              # malé UI obálky (ButtonLink, NavLink…)
-│  │  └─ widgets/         # hero, pravý sloupec, list novinek
-│  │
-│  ├─ features/           # DOMÉNOVÉ moduly (skládají se do stránek)
-│  │  ├─ calendar/components/CalendarView.tsx
-│  │  ├─ events/components/EventsTable.tsx
-│  │  └─ members/components/MemberTable.tsx
-│  │     # (časem: server/queries.ts, server/actions.ts, types.ts)
-│  │
-│  ├─ lib/                # sdílená logika/utility (bez UI)
-│  │  └─ db.ts            # Prisma Client (singleton)
-│  └─ theme.ts            # MUI theme (barvy, tvary…)
+├── docker-compose.yml        # Lokální databáze (PostgreSQL)
+├── next.config.ts             # Konfigurace Next.js
+├── package.json               # Závislosti a skripty
+├── prisma/
+│   ├── schema.prisma          # Databázové schéma
+│   ├── seed.ts                # Seedovací skript s testovacími daty
+│   └── migrations/            # Migrace databáze (vytvořené Prisma CLI)
 │
-├─ docker-compose.yml     # lokální Postgres (a Mailhog v budoucnu)
-├─ eslint.config.mjs
-├─ next.config.ts
-├─ package.json
-├─ pnpm-lock.yaml
-└─ tsconfig.json
+├── public/                    # Statické soubory (obrázky, loga, ikony)
+│   ├── hero.jpg
+│   └── danik.jpg
+│
+├── src/
+│   ├── app/                   # Hlavní Next.js App Router
+│   │   ├── (site)/            # Veřejná část webu
+│   │   ├── (member)/          # Členská sekce
+│   │   ├── (admin)/           # Administrace klubu
+│   │   ├── api/               # API routy (Next.js server actions / REST)
+│   │   ├── globals.css        # Globální styly
+│   │   ├── layout.tsx         # Root layout aplikace
+│   │   └── providers.tsx      # Globální React kontejnery (Theme, Session apod.)
+│   │
+│   ├── components/            # Sdílené UI komponenty
+│   │   ├── auth/              # Komponenty pro přihlášení (AuthButton, Dialog)
+│   │   ├── layout/            # Hlavička, patička, kontejnery
+│   │   ├── ui/                # Obecné prvky (ButtonLink, NavLink…)
+│   │   └── widgets/           # Obsahové bloky (Hero, NewsList, Bannery)
+│   │
+│   ├── features/              # Funkční moduly webu
+│   │   ├── calendar/          # Kalendář akcí
+│   │   ├── events/            # Události a akce
+│   │   └── members/           # Správa členů (tabulka, detaily)
+│   │
+│   ├── lib/                   # Pomocné knihovny
+│   │   ├── auth.ts            # NextAuth konfigurace
+│   │   └── db.ts              # Prisma klient a DB připojení
+│   │
+│   ├── theme.ts               # MUI téma (barevná paleta, typografie)
+│   └── proxy.ts               # Proxy konfigurace pro vývoj
+│
+├── types/                     # Typové deklarace pro NextAuth a API
+│   ├── next-auth.d.ts
+│   ├── next-auth-jwt.d.ts
+│   └── routes.d.ts
+│
+├── tsconfig.json              # TypeScript konfigurace
+└── eslint.config.mjs          # ESLint pravidla (typově bezpečný kód)
 ```
 
-> Konvence: **veřejné stránky** patří do `src/app/(site)/*`.  
-> **Admin** (až bude) může mít vlastní skupinu: `src/app/(admin)/*`.
-> **Člen** (až bude) může mít vlastní skupinu: `src/app/(member)/*`.
+> Konvence: 
+
+> **Veřejné stránky**: `src/app/(site)/*`.  
+
+> **Admin**: `src/app/(admin)/*`.
+
+> **Člen**: `src/app/(member)/*`.
 
 ---
 
