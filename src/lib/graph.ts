@@ -1,46 +1,20 @@
-// Pár utilit pro Graph volání
-const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+// Graph API utilities - now using PHP proxy instead of direct calls
 
-type TokenProvider = () => Promise<string>;
-
-export async function fetchJson(url: string, getToken: TokenProvider) {
-  const token = await getToken();
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Graph ${res.status}: ${txt}`);
+// Fetch images from PHP proxy
+export async function fetchImagesFromProxy(proxyUrl: string) {
+  const response = await fetch(proxyUrl);
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Proxy error ${response.status}: ${error}`);
   }
-  return res.json();
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(`Proxy returned error: ${data.error}`);
+  }
+  return data.images as any[];
 }
 
-export async function fetchBlob(url: string, getToken: TokenProvider) {
-  const token = await getToken();
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`Graph ${res.status}`);
-  return res.blob();
-}
-
-// Získá siteId z hostname + site path
-export async function getSiteId(hostname: string, sitePath: string, getToken: TokenProvider) {
-  const url = `${GRAPH_BASE}/sites/${hostname}:/${sitePath}`;
-  const json = await fetchJson(url, getToken);
-  return json.id as string;
-}
-
-// Vrátí seznam položek (souborů) ve složce
-export async function listFolderItems(siteId: string, folderPath: string, getToken: TokenProvider) {
-  // drive/root:/<folderPath>:/children
-  const encPath = encodeURIComponent(folderPath);
-  const url = `${GRAPH_BASE}/sites/${siteId}/drive/root:/${encPath}:/children?$select=id,name,webUrl,file,folder&$expand=thumbnails`;
-  const json = await fetchJson(url, getToken);
-  return json.value as any[];
-}
-
-// URL pro náhled (thumbnail) – pokud není, umíme stáhnout content
+// URL pro náhled (thumbnail) – pokud není, fallback na content URL
 export function pickThumbnailUrl(item: any): string | undefined {
   const ts = item.thumbnails;
   if (Array.isArray(ts) && ts[0]?.large?.url) return ts[0].large.url;
@@ -49,7 +23,7 @@ export function pickThumbnailUrl(item: any): string | undefined {
   return undefined;
 }
 
-// Přímý obsah obrázku
-export function contentUrlForItem(siteId: string, itemId: string) {
-  return `${GRAPH_BASE}/sites/${siteId}/drive/items/${itemId}/content`;
+// Content URL pro full-size image (pro proxy nebo direct access)
+export function getImageContentUrl(proxyUrl: string, itemId: string) {
+  return `${proxyUrl}?action=get_image&id=${encodeURIComponent(itemId)}`;
 }

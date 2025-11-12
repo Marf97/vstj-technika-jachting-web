@@ -1,15 +1,11 @@
 import { useEffect, useState } from "react";
-import { msalInstance, GRAPH_SCOPES } from "../lib/auth";
-import { getSiteId, listFolderItems, pickThumbnailUrl, contentUrlForItem, fetchBlob } from "../lib/graph";
+import { fetchImagesFromProxy, pickThumbnailUrl, getImageContentUrl } from "../lib/graph";
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import Typography from '@mui/material/Typography';
 import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import { ThemeProvider } from '@mui/material/styles';
-import theme from '../theme';
 
 type Photo = { id: string; name: string; src: string; item: any };
 
@@ -21,19 +17,16 @@ export default function Gallery() {
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [fullImageLoading, setFullImageLoading] = useState(false);
 
-  const SITE_HOST = import.meta.env.VITE_SITE_HOST as string;
-  const SITE_PATH = import.meta.env.VITE_SITE_PATH as string;
-  const FOLDER_PATH = import.meta.env.VITE_FOLDER_PATH as string;
+  const PROXY_URL = '/api/php_proxy.php'; // Vite proxy will handle this
 
   const handlePhotoClick = async (photo: Photo, item: any) => {
     setSelectedPhoto(photo);
     setFullImageLoading(true);
     setFullImageUrl(null); // clear previous image
     try {
-      const siteId = await getSiteId(SITE_HOST, SITE_PATH, getToken);
-      const blob = await fetchBlob(contentUrlForItem(siteId, item.id), getToken);
-      const objectUrl = URL.createObjectURL(blob);
-      setFullImageUrl(objectUrl);
+      // For full images, fetch directly from proxy (extend PHP proxy to handle individual image requests)
+      const imageUrl = getImageContentUrl(PROXY_URL, item.id);
+      setFullImageUrl(imageUrl);
     } catch (e) {
       console.error('Failed to load full image:', e);
       setFullImageUrl(photo.src); // fallback to thumbnail
@@ -48,54 +41,24 @@ export default function Gallery() {
     setFullImageLoading(false);
   };
 
-  async function ensureLogin() {
-    if (!msalInstance.getAllAccounts().length) {
-      await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
-    }
-  }
-
-  async function getToken() {
-    const acc = msalInstance.getAllAccounts()[0];
-    if (!acc) {
-      throw new Error('No account found');
-    }
-    const res = await msalInstance.acquireTokenSilent({
-      scopes: GRAPH_SCOPES,
-      account: acc,
-    }).catch(async () => {
-      return msalInstance.acquireTokenPopup({ scopes: GRAPH_SCOPES });
-    });
-    return res.accessToken;
-  }
-
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        await msalInstance.initialize();
-        await ensureLogin();
 
-        const siteId = await getSiteId(SITE_HOST, SITE_PATH, getToken);
-        const items = await listFolderItems(siteId, FOLDER_PATH, getToken);
+        // Fetch images from PHP proxy
+        const imageItems = await fetchImagesFromProxy(PROXY_URL);
 
-        // Necháme jen soubory (ne složky) a ideálně obrázky
-        const imageItems = items.filter((i: any) => i.file && /^image\//.test(i.file.mimeType || ""));
-
-        // Najdi thumbnail, případně stáhni obsah a vytvoř blob URL
-        const photosResolved: Photo[] = await Promise.all(
-          imageItems.map(async (it: any) => {
-            const thumb = pickThumbnailUrl(it);
-            if (thumb) {
-              // Graph thumbnail URL už obsahuje SAS-like token, stačí přímo použít
-              return { id: it.id, name: it.name, src: thumb, item: it };
-            } else {
-              // Fallback: stáhnout celý obrázek
-              const blob = await fetchBlob(contentUrlForItem(siteId, it.id), getToken);
-              const objectUrl = URL.createObjectURL(blob);
-              return { id: it.id, name: it.name, src: objectUrl, item: it };
-            }
-          })
-        );
+        // Process images - pick thumbnails
+        const photosResolved: Photo[] = imageItems.map((it: any) => {
+          const thumb = pickThumbnailUrl(it);
+          return {
+            id: it.id,
+            name: it.name,
+            src: thumb || getImageContentUrl(PROXY_URL, it.id), // fallback to full image if no thumbnail
+            item: it
+          };
+        });
 
         setPhotos(photosResolved);
         setError(null);

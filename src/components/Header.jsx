@@ -6,14 +6,21 @@ import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import NavButton from './NavButton'
 
-export default function Header() {
+export default function Header({ onNavClick }) {
   const theme = useTheme()
+
+  const handleNavClick = (section) => {
+    const sectionId = section.toLowerCase().replace(/\s+/g, '');
+    if (onNavClick) {
+      onNavClick(sectionId);
+    }
+  };
 
   return (
     <AppBar
       position="static"
       sx={{
-        backgroundImage: 'url(/src/assets/header-background.jpg)',
+        backgroundImage: 'url(/header-background.JPG)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -45,7 +52,7 @@ export default function Header() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <img
-            src="/src/assets/logo/Logo_bile_zkracene.svg"
+            src="/logo/Logo_bile_zkracene.svg"
             alt="VŠTJ Logo"
             style={{
               height: 'auto',
@@ -75,9 +82,9 @@ export default function Header() {
           gap: { xs: 0.5, sm: 0 },
           alignItems: { xs: 'flex-end', sm: 'center' }
         }}>
-          <NavButton>O nás</NavButton>
-          <NavButton>Kontakt</NavButton>
-          <NavButton>Galerie</NavButton>
+          <NavButton onClick={() => handleNavClick('O nás')}>O nás</NavButton>
+          <NavButton onClick={() => handleNavClick('Kontakt')}>Kontakt</NavButton>
+          <NavButton onClick={() => handleNavClick('Galerie')}>Galerie</NavButton>
         </Box>
       </Toolbar>
     </AppBar>

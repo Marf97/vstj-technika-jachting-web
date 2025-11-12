@@ -33,6 +33,7 @@ vite.config.ts.timestamp-*
 # žádné speciální soubory netvoří, ale pro jistotu:
 .msal_cache/
 auth/
+php*
 
 # --- GITLAB CI (pokud používáš CI/CD) ---
 # ignoruj lokální CI konfigurace, pokud máš varianty:

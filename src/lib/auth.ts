@@ -1,23 +1,33 @@
-import { PublicClientApplication, type Configuration } from "@azure/msal-browser";
-
 const clientId = import.meta.env.VITE_AAD_CLIENT_ID as string;
-const tenantId = import.meta.env.VITE_AAD_TENANT_ID as string | undefined;
+const tenantId = import.meta.env.VITE_AAD_TENANT_ID as string;
+const clientSecret = import.meta.env.VITE_AAD_CLIENT_SECRET as string;
 
-const msalConfig: Configuration = {
-  auth: {
-    clientId,
-    authority: tenantId
-      ? `https://login.microsoftonline.com/${tenantId}`
-      : "https://login.microsoftonline.com/common",
-    redirectUri: window.location.origin + "/", // http://localhost:5173/
-  },
-  cache: {
-    cacheLocation: "localStorage",
-    storeAuthStateInCookie: false,
-  },
-};
+// App-only scopes for Microsoft Graph
+export const GRAPH_SCOPES = ["https://graph.microsoft.com/.default"];
 
-export const msalInstance = new PublicClientApplication(msalConfig);
+export async function acquireTokenForApp(): Promise<string> {
+  const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
 
-// Scopes pro Graph (delegované)
-export const GRAPH_SCOPES = ["Files.Read", "Sites.Read.All"]; // Sites.Read.All můžeš případně odstranit, pokud stačí Files.Read
+  const body = new URLSearchParams({
+    client_id: clientId,
+    scope: GRAPH_SCOPES[0],
+    client_secret: clientSecret,
+    grant_type: "client_credentials",
+  });
+
+  const response = await fetch(tokenEndpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to acquire app token: ${response.status} ${error}`);
+  }
+
+  const data = await response.json();
+  return data.access_token as string;
+}
