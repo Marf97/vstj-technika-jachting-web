@@ -12,10 +12,11 @@ export default function NavButton({ children, ...props }) {
       sx={{
         textTransform: 'none',
         color: 'common.white',
-        px: 3,
-        py: 2,
-        fontSize: '1.1rem',
+        px: { xs: 2, sm: 3 },
+        py: { xs: 1, sm: 2 },
+        fontSize: { xs: '0.9rem', sm: '1.1rem' },
         borderRadius: 0,
+        minWidth: { xs: '80px', sm: 'auto' },
         '&:hover': {
           backgroundColor: theme.palette.common.white + '3', // 10% white opacity
         }

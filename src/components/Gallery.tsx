@@ -92,14 +92,26 @@ export default function Gallery() {
         <Typography>Ve složce zatím nejsou žádné obrázky.</Typography>
       ) : (
         <>
-          <ImageList variant="masonry" cols={4} gap={8}>
+          <ImageList variant="standard" cols={4} gap={8} sx={{
+            gridTemplateColumns: {
+              xs: 'repeat(1, 1fr)',
+              sm: 'repeat(2, 1fr)',
+              md: 'repeat(3, 1fr)',
+              lg: 'repeat(4, 1fr)'
+            }
+          }}>
             {photos.map((p) => (
-              <ImageListItem key={p.id}>
+              <ImageListItem key={p.id} sx={{ aspectRatio: '4/3' }}>
                 <img
                   src={p.src}
                   alt={p.name}
                   loading="lazy"
-                  style={{ cursor: 'pointer', maxHeight: '200px', objectFit: 'cover' }}
+                  style={{
+                    cursor: 'pointer',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
                   onClick={() => setSelectedPhoto(p)}
                 />
               </ImageListItem>

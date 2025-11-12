@@ -43,24 +43,38 @@ export default function Header() {
           zIndex: 2,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
           <img
             src="/src/assets/logo/Logo_bile_zkracene.svg"
             alt="VŠTJ Logo"
-            style={{ height: '100px', width: 'auto' }}
+            style={{
+              height: 'auto',
+              width: 'auto',
+              maxHeight: '100px',
+              maxWidth: '200px'
+            }}
+            sx={{
+              height: { xs: '60px', sm: '80px', md: '100px' }
+            }}
           />
           <Typography
             variant="h4"
             sx={{
               color: 'common.white',
               textDecoration: 'none',
+              fontSize: { xs: '1.2rem', sm: '1.5rem', md: '2rem' },
             }}
           >
             VŠTJ Technika Jachting Praha
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 0 }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: { xs: 0.5, sm: 0 },
+          alignItems: { xs: 'flex-end', sm: 'center' }
+        }}>
           <NavButton>O nás</NavButton>
           <NavButton>Kontakt</NavButton>
           <NavButton>Galerie</NavButton>

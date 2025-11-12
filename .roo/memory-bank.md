@@ -62,9 +62,10 @@ src/
 
 ## Current Application State
 **Layout:**
-- **Redesigned Header**: PDF-inspired layout with logo left, navigation right, hero background image with navy overlay
+- **Responsive Header**: PDF-inspired layout with responsive logo scaling (60px mobile, 80px tablet, 100px desktop), navigation right with vertical stacking on mobile
 - Content sections: "O nás", "Kontakt", "Galerie" with theme-styled markdown content
 - Footer with copyright using navy theme color
+- **Responsive Gallery**: MUI ImageList with standard layout, responsive columns (1 mobile, 2 tablet, 3 medium, 4 large), fixed 4:3 aspect ratios for consistent sizing
 
 **Content Status:**
 - **Theme Implementation**: Full MUI theme with brand colors from PDF (#6396C1, #1F2646, #8F271E, #BF7D56, #6B6948) and Outfit fonts
@@ -87,7 +88,7 @@ src/
 - **Internationalization**: No i18n setup (currently Czech-only)
 - **Header Background**: Image positioning can be customized via `backgroundPosition` CSS property
 - **Performance**: Image loading optimization for gallery
-- **Responsive Design**: Header layout could be optimized for mobile devices
+- **Responsive Design**: Header and gallery fully responsive with mobile-optimized layouts
 
 ## Development Commands
 - `npm run dev`: Start development server
@@ -119,7 +120,7 @@ src/
 - **Routing System**: Implement client-side routing for multi-page sections
 - **Content Management**: Expand markdown-based system, add more content sections
 - **Authentication UX**: Login/logout buttons, better error handling, user session management
-- **Mobile Optimization**: Responsive header layout, touch-friendly navigation
+- **Mobile Optimization**: Responsive header layout with vertical navbar stacking, touch-friendly navigation, responsive gallery with consistent aspect ratios
 - **Performance**: Image loading optimization, lazy loading for gallery
 - **PWA Features**: Offline capabilities, service workers, app manifest
 - **Additional Sections**: News/blog functionality, contact forms, member registration
