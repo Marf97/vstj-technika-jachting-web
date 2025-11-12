@@ -8,18 +8,45 @@ import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
+import { ThemeProvider } from '@mui/material/styles';
+import theme from '../theme';
 
-type Photo = { id: string; name: string; src: string };
+type Photo = { id: string; name: string; src: string; item: any };
 
 export default function Gallery() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
+  const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
+  const [fullImageLoading, setFullImageLoading] = useState(false);
 
   const SITE_HOST = import.meta.env.VITE_SITE_HOST as string;
   const SITE_PATH = import.meta.env.VITE_SITE_PATH as string;
   const FOLDER_PATH = import.meta.env.VITE_FOLDER_PATH as string;
+
+  const handlePhotoClick = async (photo: Photo, item: any) => {
+    setSelectedPhoto(photo);
+    setFullImageLoading(true);
+    setFullImageUrl(null); // clear previous image
+    try {
+      const siteId = await getSiteId(SITE_HOST, SITE_PATH, getToken);
+      const blob = await fetchBlob(contentUrlForItem(siteId, item.id), getToken);
+      const objectUrl = URL.createObjectURL(blob);
+      setFullImageUrl(objectUrl);
+    } catch (e) {
+      console.error('Failed to load full image:', e);
+      setFullImageUrl(photo.src); // fallback to thumbnail
+    } finally {
+      setFullImageLoading(false);
+    }
+  };
+
+  const handleCloseDialog = () => {
+    setSelectedPhoto(null);
+    setFullImageUrl(null);
+    setFullImageLoading(false);
+  };
 
   async function ensureLogin() {
     if (!msalInstance.getAllAccounts().length) {
@@ -60,12 +87,12 @@ export default function Gallery() {
             const thumb = pickThumbnailUrl(it);
             if (thumb) {
               // Graph thumbnail URL už obsahuje SAS-like token, stačí přímo použít
-              return { id: it.id, name: it.name, src: thumb };
+              return { id: it.id, name: it.name, src: thumb, item: it };
             } else {
               // Fallback: stáhnout celý obrázek
               const blob = await fetchBlob(contentUrlForItem(siteId, it.id), getToken);
               const objectUrl = URL.createObjectURL(blob);
-              return { id: it.id, name: it.name, src: objectUrl };
+              return { id: it.id, name: it.name, src: objectUrl, item: it };
             }
           })
         );
@@ -112,7 +139,7 @@ export default function Gallery() {
                     height: '100%',
                     objectFit: 'cover'
                   }}
-                  onClick={() => setSelectedPhoto(p)}
+                  onClick={() => handlePhotoClick(p, p.item)}
                 />
               </ImageListItem>
             ))}
@@ -120,32 +147,50 @@ export default function Gallery() {
 
           <Dialog
             open={!!selectedPhoto}
-            onClose={() => setSelectedPhoto(null)}
-            maxWidth="lg"
-            fullWidth
+            onClose={handleCloseDialog}
+            fullScreen
+            sx={{
+              '& .MuiDialog-paper': {
+                backgroundColor: 'black',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }
+            }}
           >
-            <DialogContent sx={{ position: 'relative', p: 0 }}>
-              <IconButton
-                onClick={() => setSelectedPhoto(null)}
-                sx={{
-                  position: 'absolute',
-                  right: 8,
-                  top: 8,
-                  bgcolor: 'navy.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'primary.main' }
-                }}
-              >
-                <CloseIcon />
-              </IconButton>
-              {selectedPhoto && (
-                <img
-                  src={selectedPhoto.src}
-                  alt={selectedPhoto.name}
-                  style={{ width: '100%', height: 'auto', display: 'block' }}
-                />
-              )}
-            </DialogContent>
+            <IconButton
+              onClick={handleCloseDialog}
+              sx={{
+                position: 'absolute',
+                right: 16,
+                top: 16,
+                bgcolor: '#1F2646',
+                color: 'white',
+                '&:hover': { bgcolor: '#6396C1' },
+                zIndex: 1
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+            {selectedPhoto && (
+              <>
+                {fullImageLoading && (
+                  <Typography sx={{ color: 'white' }}>Načítám obrázek…</Typography>
+                )}
+                {(fullImageUrl || selectedPhoto.src) && !fullImageLoading && (
+                  <img
+                    src={fullImageUrl || selectedPhoto.src}
+                    alt={selectedPhoto.name}
+                    style={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                      display: 'block'
+                    }}
+                  />
+                )}
+              </>
+            )}
           </Dialog>
         </>
       )}

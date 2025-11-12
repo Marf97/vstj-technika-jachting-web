@@ -9,7 +9,7 @@
 - **Language**: Czech (content and comments)
 
 ## Key Technologies & Dependencies
-- **React**: 19.2.0 (new version)
+- **React**: 18.3.1 (downgraded from 19.2.0 for MUI compatibility)
 - **Vite**: 7.2.2 (build tool)
 - **MUI**: @mui/material 7.3.5, @mui/icons-material 7.3.5, @emotion/react/styled 11.14.1
 - **Markdown**: react-markdown for content rendering
@@ -70,7 +70,7 @@ src/
 **Content Status:**
 - **Theme Implementation**: Full MUI theme with brand colors from PDF (#6396C1, #1F2646, #8F271E, #BF7D56, #6B6948) and Outfit fonts
 - **Markdown Content**: "O nás" (onas.md) and "Kontakt" (vedeni.md) sections with theme-aware typography (navy headings, Outfit fonts)
-- **Gallery Component**: Enhanced MUI ImageList masonry layout, modal dialogs with theme-styled close buttons
+- **Gallery Component**: Enhanced MUI ImageList masonry layout, fullscreen modal dialogs with theme-styled close buttons, full-resolution image loading on click, click-outside-to-close functionality
 - **Navigation**: Simplified to active sections (O nás, Kontakt, Galerie) with reusable NavButton component
 - **Content Management**: Markdown-based with proper theming via sx selectors
 
@@ -83,7 +83,7 @@ src/
 - **Navigation**: Commented-out sections for "Novinky", "Naše lodě", "Přihláška do oddílu"
 - **Routing**: No routing system (single-page app)
 - **Content Sections**: Some sections incomplete or not implemented
-- **Gallery UX**: Loading states and error handling could be improved
+- **Gallery UX**: Full-resolution image loading with loading states, click-outside-to-close functionality, responsive fullscreen modal dialogs
 - **Authentication**: UX could be enhanced (login/logout buttons, better error messages)
 - **Internationalization**: No i18n setup (currently Czech-only)
 - **Header Background**: Image positioning can be customized via `backgroundPosition` CSS property
@@ -106,7 +106,13 @@ src/
 - **UI Patterns**: Masonry image layouts, modal dialogs with theme-styled close buttons, PDF-inspired header layout
 - **Naming**: Czech comments, English technical terms, theme-aware component naming
 
-## Recent Developments & Theme Implementation
+## Recent Developments & Gallery Improvements
+**Gallery Enhancement (2025-11-12):**
+- **React Compatibility**: Resolved React 19/MUI 7 compatibility issues by downgrading to React 18.3.1
+- **Full-Resolution Images**: Implemented on-demand full-resolution image loading for modal dialogs
+- **Enhanced UX**: Added fullscreen modal dialogs with click-outside-to-close, loading states, and responsive image display
+- **Performance Optimization**: Thumbnails load initially, full images only when requested
+
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
 - **PDF-Driven Design**: All colors and fonts extracted from VSTJ_navrh_pokus.pdf brand guidelines
@@ -141,5 +147,13 @@ src/
 ---
 
 *Last Updated: 2025-11-12*
+*Recent Gallery Enhancement: 2025-11-12*
 *Recent Theme Implementation: 2025-11-12*
 *Analyzed by: Roo (Code & Architect Modes)*
+
+## Workflow Rules for Session Management
+**Memory Bank Protocol:**
+- **Session Start**: Always read `.roo/memory-bank.md` at the beginning of each new session
+- **Change Tracking**: Update memory bank immediately after completing tasks when user confirms satisfaction
+- **Documentation Updates**: Include technology changes, new features, bug fixes, and architectural decisions
+- **Date Tracking**: Maintain accurate timestamps for all major updates
