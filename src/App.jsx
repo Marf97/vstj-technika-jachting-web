@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
@@ -7,6 +8,7 @@ import Footer from './components/Footer'
 import Typography from '@mui/material/Typography'
 import Gallery from './components/Gallery'
 import ReactMarkdown from 'react-markdown'
+import theme from './theme'
 import './App.css'
 
 function App() {
@@ -27,34 +29,15 @@ function App() {
   }, []);
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box display="flex" minHeight="100vh" flexDirection="column">
         <Header />
         <Container component="main" sx={{ flex: 1, py: 4 }} maxWidth="lg">
-          {/* Hero section using image from public/hero.jpg */}
-          <Box
-            sx={{
-              height: 360,
-              borderRadius: 10,
-              backgroundImage: 'url(/hero.jpg)',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'common.white',
-              mb: 4,
-            }}
-          >
-            <Box sx={{ bgcolor: 'rgba(0,0,0,0.4)', p: 3, borderRadius: 1 }}>
-              <h1 style={{ margin: 0 }}>VŠTJ Technika Jachting</h1>
-            </Box>
-          </Box>
-          <Box>
+          <Box sx={{ '& h1, & h2, & h3, & h4, & h5, & h6': { color: 'primary.main', fontWeight: 500 }, '& p': { color: 'text.primary', fontWeight: 300 } }}>
             <ReactMarkdown>{onasContent || 'Načítám obsah...'}</ReactMarkdown>
           </Box>
-          <Box>
+          <Box sx={{ '& h1, & h2, & h3, & h4, & h5, & h6': { color: 'primary.main', fontWeight: 500 }, '& p': { color: 'text.primary', fontWeight: 300 } }}>
             <ReactMarkdown>{vedeniContent || 'Načítám obsah...'}</ReactMarkdown>
           </Box>
           <Box>
@@ -63,7 +46,7 @@ function App() {
         </Container>
         <Footer />
       </Box>
-    </>
+    </ThemeProvider>
   )
 }
 

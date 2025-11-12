@@ -84,8 +84,8 @@ export default function Gallery() {
   if (error) return <Typography sx={{ p: 4, color: 'error.main' }}>Chyba: {error}</Typography>;
 
   return (
-    <div style={{ padding: 16 }}>
-      <Typography variant="h4" gutterBottom>
+    <div>
+      <Typography variant="h2" color="primary.main" gutterBottom>
         Galerie
       </Typography>
       {!photos.length ? (
@@ -119,9 +119,9 @@ export default function Gallery() {
                   position: 'absolute',
                   right: 8,
                   top: 8,
-                  bgcolor: 'rgba(0, 0, 0, 0.5)',
+                  bgcolor: 'navy.main',
                   color: 'white',
-                  '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.7)' }
+                  '&:hover': { bgcolor: 'primary.main' }
                 }}
               >
                 <CloseIcon />

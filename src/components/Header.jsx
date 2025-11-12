@@ -1,45 +1,71 @@
 import React from 'react'
+import { useTheme } from '@mui/material/styles'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
 import Box from '@mui/material/Box'
+import NavButton from './NavButton'
 
 export default function Header() {
-  return (
-    <AppBar position="static" color="primary" elevation={1}>
-          <Toolbar disableGutters sx={{ display: 'flex', justifyContent: 'space-between', px: 4 }}>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}
-            >
-              VŠTJ Technika Jachting
-            </Typography>
+  const theme = useTheme()
 
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button color="inherit" variant="text" sx={{ textTransform: 'none' }}>
-                O nás
-              </Button>
-              <Button color="inherit" variant="text" sx={{ textTransform: 'none' }}>
-                Kontakt
-              </Button>
-              <Button color="inherit" variant="text" sx={{ textTransform: 'none' }}>
-                Galerie
-              </Button>
-              {/*<Button color="inherit" variant="text" sx={{ textTransform: 'none' }}>
-                Novinky
-              </Button>
-              <Button color="inherit" variant="text" sx={{ textTransform: 'none' }}>
-                Naše lodě
-              </Button>
-              <Button color="inherit" variant="text" sx={{ textTransform: 'none' }}>
-                Přihláška do oddílu
-              </Button>    
-              <Button variant="contained" color="secondary" sx={{ textTransform: 'none' }}>
-                Přihlásit
-              </Button>*/}
-            </Box>
-          </Toolbar>
+  return (
+    <AppBar
+      position="static"
+      sx={{
+        backgroundImage: 'url(/src/assets/header-background.jpg)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        height: '250px',
+        elevation: 0,
+        position: 'relative',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: theme.palette.navy.main + 'b3', // navy.main with 70% opacity
+          zIndex: 1,
+        }
+      }}
+    >
+      <Toolbar
+        disableGutters
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          height: '100%',
+          position: 'relative',
+          zIndex: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <img
+            src="/src/assets/logo/Logo_bile_zkracene.svg"
+            alt="VŠTJ Logo"
+            style={{ height: '100px', width: 'auto' }}
+          />
+          <Typography
+            variant="h4"
+            sx={{
+              color: 'common.white',
+              textDecoration: 'none',
+            }}
+          >
+            VŠTJ Technika Jachting Praha
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', gap: 0 }}>
+          <NavButton>O nás</NavButton>
+          <NavButton>Kontakt</NavButton>
+          <NavButton>Galerie</NavButton>
+        </Box>
+      </Toolbar>
     </AppBar>
   )
 }
