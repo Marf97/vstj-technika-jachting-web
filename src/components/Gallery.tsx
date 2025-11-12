@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { msalInstance, GRAPH_SCOPES } from "../lib/auth";
 import { getSiteId, listFolderItems, pickThumbnailUrl, contentUrlForItem, fetchBlob } from "../lib/graph";
+import ImageList from '@mui/material/ImageList';
+import ImageListItem from '@mui/material/ImageListItem';
+import Typography from '@mui/material/Typography';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
 
 type Photo = { id: string; name: string; src: string };
 
@@ -8,15 +15,11 @@ export default function Gallery() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
 
   const SITE_HOST = import.meta.env.VITE_SITE_HOST as string;
   const SITE_PATH = import.meta.env.VITE_SITE_PATH as string;
   const FOLDER_PATH = import.meta.env.VITE_FOLDER_PATH as string;
-
-  const account = useMemo(() => {
-    const a = msalInstance.getAllAccounts();
-    return a[0];
-  }, []);
 
   async function ensureLogin() {
     if (!msalInstance.getAllAccounts().length) {
@@ -26,6 +29,9 @@ export default function Gallery() {
 
   async function getToken() {
     const acc = msalInstance.getAllAccounts()[0];
+    if (!acc) {
+      throw new Error('No account found');
+    }
     const res = await msalInstance.acquireTokenSilent({
       scopes: GRAPH_SCOPES,
       account: acc,
@@ -74,23 +80,62 @@ export default function Gallery() {
     })();
   }, []);
 
-  if (loading) return <p className="p-4">Načítám fotky…</p>;
-  if (error) return <p className="p-4 text-red-600">Chyba: {error}</p>;
+  if (loading) return <Typography sx={{ p: 4 }}>Načítám fotky…</Typography>;
+  if (error) return <Typography sx={{ p: 4, color: 'error.main' }}>Chyba: {error}</Typography>;
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-semibold mb-3">Galerie</h1>
+    <div style={{ padding: 16 }}>
+      <Typography variant="h4" gutterBottom>
+        Galerie
+      </Typography>
       {!photos.length ? (
-        <p>Ve složce zatím nejsou žádné obrázky.</p>
+        <Typography>Ve složce zatím nejsou žádné obrázky.</Typography>
       ) : (
-        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(160px,1fr))]">
-          {photos.map(p => (
-            <figure key={p.id} className="rounded-lg overflow-hidden shadow-sm border">
-              <img src={p.src} alt={p.name} className="w-full h-40 object-cover" />
-              <figcaption className="text-sm p-2 truncate">{p.name}</figcaption>
-            </figure>
-          ))}
-        </div>
+        <>
+          <ImageList variant="masonry" cols={4} gap={8}>
+            {photos.map((p) => (
+              <ImageListItem key={p.id}>
+                <img
+                  src={p.src}
+                  alt={p.name}
+                  loading="lazy"
+                  style={{ cursor: 'pointer', maxHeight: '200px', objectFit: 'cover' }}
+                  onClick={() => setSelectedPhoto(p)}
+                />
+              </ImageListItem>
+            ))}
+          </ImageList>
+
+          <Dialog
+            open={!!selectedPhoto}
+            onClose={() => setSelectedPhoto(null)}
+            maxWidth="lg"
+            fullWidth
+          >
+            <DialogContent sx={{ position: 'relative', p: 0 }}>
+              <IconButton
+                onClick={() => setSelectedPhoto(null)}
+                sx={{
+                  position: 'absolute',
+                  right: 8,
+                  top: 8,
+                  bgcolor: 'rgba(0, 0, 0, 0.5)',
+                  color: 'white',
+                  '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.7)' }
+                }}
+              >
+                <CloseIcon />
+              </IconButton>
+              {selectedPhoto && (
+                <img
+                  src={selectedPhoto.src}
+                  alt={selectedPhoto.name}
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
+        </>
       )}
     </div>
   );

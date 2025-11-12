@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import CssBaseline from '@mui/material/CssBaseline'
 import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
@@ -6,9 +6,26 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import Typography from '@mui/material/Typography'
 import Gallery from './components/Gallery'
+import ReactMarkdown from 'react-markdown'
 import './App.css'
 
 function App() {
+  const [onasContent, setOnasContent] = useState('');
+  const [vedeniContent, setVedenicontent] = useState('');
+
+  useEffect(() => {
+    // Load markdown files
+    fetch('/src/assets/onas.md')
+      .then(response => response.text())
+      .then(text => setOnasContent(text))
+      .catch(error => console.error('Error loading onas.md:', error));
+
+    fetch('/src/assets/vedeni.md')
+      .then(response => response.text())
+      .then(text => setVedenicontent(text))
+      .catch(error => console.error('Error loading vedeni.md:', error));
+  }, []);
+
   return (
     <>
       <CssBaseline />
@@ -35,37 +52,12 @@ function App() {
             </Box>
           </Box>
           <Box>
-            <Typography variant="h4" gutterBottom>
-              O Nás
-            </Typography>
-            <p>
-              Tady bude něco o náš 😊
-            </p>
-            <Typography variant="h5" gutterBottom>
-              VŠTJ
-            </Typography>
-            <p>
-              Jsme součástí Vysokoškolské tělovýchovné jednoty (VŠTJ) Technika. Ale co to vlastně je? 🤔
-            </p>
-            <Typography variant="h5" gutterBottom>
-              Jachting
-            </Typography>
-            <p>
-              Fouká vítr, držte si kloubouky! ⛵💨
-            </p>
+            <ReactMarkdown>{onasContent || 'Načítám obsah...'}</ReactMarkdown>
           </Box>
           <Box>
-            <Typography variant="h4" gutterBottom>
-              Kontakt
-            </Typography>
-            <p>
-              Brzy tady přidáme kontaktní informace. Zatím můžeš poslat holuba🕊️
-            </p>
+            <ReactMarkdown>{vedeniContent || 'Načítám obsah...'}</ReactMarkdown>
           </Box>
           <Box>
-            <Typography variant="h4" gutterBottom>
-              Galerie
-            </Typography>
             <Gallery />
           </Box>
         </Container>
