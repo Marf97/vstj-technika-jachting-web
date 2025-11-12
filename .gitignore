@@ -1,0 +1,43 @@
+# --- ZÁKLADNÍ NODE/VITE ---
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# --- ENV SOUBORY (tajné údaje) ---
+.env
+.env.*.local
+
+# --- SYSTÉMOVÉ A IDE SOUBORY ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- TESTOVACÍ A DOČASNÉ ---
+coverage/
+*.tsbuildinfo
+*.swp
+
+# --- BUILD A CACHE ---
+.cache/
+vite.config.ts.timestamp-*
+.vite/
+
+# --- MSAL a prohlížečové session ---
+# (MSAL ukládá data do localStorage, to se necommituje)
+# žádné speciální soubory netvoří, ale pro jistotu:
+.msal_cache/
+auth/
+
+# --- GITLAB CI (pokud používáš CI/CD) ---
+# ignoruj lokální CI konfigurace, pokud máš varianty:
+.gitlab-ci-local.yaml
+
+# --- MAC / WINDOWS ---
+ehthumbs.db
+desktop.ini
