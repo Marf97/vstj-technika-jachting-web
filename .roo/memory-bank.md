@@ -30,16 +30,27 @@ src/
 ├── components/          # React components
 │   ├── Header.jsx       # Redesigned header with hero background & logo
 │   ├── Footer.jsx       # Copyright footer with theme colors
-│   ├── Gallery.tsx      # Dynamic image gallery from SharePoint
+│   ├── Gallery.tsx      # Dynamic image gallery from SharePoint via PHP proxy
 │   └── NavButton.jsx    # Reusable navigation button component
 ├── lib/                 # Utilities
-│   ├── auth.ts          # Azure AD authentication setup
-│   └── graph.ts         # Microsoft Graph API utilities
+│   ├── auth.ts          # Azure AD authentication setup (client-side)
+│   └── graph.ts         # PHP proxy utilities (server-side Graph API calls)
 ├── theme.js             # Custom MUI theme with brand colors & Outfit fonts
 ├── App.jsx              # Main app component with markdown content loading
 ├── App.css              # Component-specific styles
 ├── index.css            # Global styles with @font-face declarations
 └── main.jsx             # React app entry point
+
+Docker & PHP Proxy (Development):
+├── Dockerfile           # PHP Apache container configuration
+├── docker-compose.yml   # Docker Compose for PHP proxy server
+├── php_proxy.php        # Lists images from SharePoint
+└── php_get_image.php    # Downloads individual full-resolution images
+
+Environment:
+├── .env                 # Frontend environment variables
+├── .env.php             # PHP proxy secrets (gitignored)
+└── .gitignore          # Excludes secrets and build artifacts
 ```
 
 ## Azure AD & SharePoint Integration
@@ -50,11 +61,16 @@ src/
 - `VITE_SITE_PATH`: SharePoint site path (sites/jachting)
 - `VITE_FOLDER_PATH`: Image folder path (verejne/fotky-verejne)
 
+**PHP Proxy Environment Variables (.env.php):**
+- `CLIENT_ID`: Azure AD client ID for server-side API calls
+- `TENANT_ID`: Azure AD tenant ID
+- `CLIENT_SECRET`: Azure AD client secret
+
 **Authentication Flow:**
-1. User clicks gallery → triggers login popup if not authenticated
-2. MSAL acquires token silently or via popup
-3. Graph API calls fetch images from SharePoint folder
-4. Images displayed with thumbnails, fallback to full download
+1. User loads page → PHP proxy fetches images server-side using app-only authentication
+2. Images displayed with thumbnails from SharePoint
+3. User clicks image → full-resolution image fetched via dedicated PHP endpoint
+4. CORS headers allow cross-origin requests from both dev and production domains
 
 **Permissions:**
 - Delegated scopes: Files.Read, Sites.Read.All
@@ -100,10 +116,12 @@ src/
 - **Components**: Functional components with hooks, reusable components (NavButton), modal dialogs for image viewing
 - **Styling**: MUI ThemeProvider with custom theme, sx prop for inline styles, theme-aware components, @font-face for fonts
 - **Theming**: Custom MUI palette with brand colors, Outfit typography configuration, theme hooks (useTheme)
-- **Authentication**: Custom hooks in auth.ts, token provider pattern, proper MSAL initialization
-- **API**: Async/await with error handling, fetch-based Graph calls
+- **Authentication**: Dual approach - client-side MSAL for users, server-side app-only for API proxy
+- **API**: Async/await with error handling, PHP proxy for Graph API calls, environment-based configuration
 - **Types**: TypeScript for utilities, JSX for components
 - **UI Patterns**: Masonry image layouts, modal dialogs with theme-styled close buttons, PDF-inspired header layout
+- **Infrastructure**: Docker containers for development, environment variable secrets management
+- **Security**: Gitignored secrets, CORS validation, proper error handling without information leakage
 - **Naming**: Czech comments, English technical terms, theme-aware component naming
 
 ## Recent Developments & Gallery Improvements
@@ -112,6 +130,13 @@ src/
 - **Full-Resolution Images**: Implemented on-demand full-resolution image loading for modal dialogs
 - **Enhanced UX**: Added fullscreen modal dialogs with click-outside-to-close, loading states, and responsive image display
 - **Performance Optimization**: Thumbnails load initially, full images only when requested
+
+**PHP Proxy Implementation (2025-11-13):**
+- **Docker Integration**: Containerized PHP Apache server for development proxy
+- **Security Enhancement**: Removed hardcoded secrets, environment variable configuration
+- **Dual Endpoints**: Separate PHP files for image listing and individual image downloads
+- **CORS Support**: Dynamic origin validation for both development and production domains
+- **Environment Management**: Gitignored secrets file with Docker environment loading
 
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
@@ -146,9 +171,10 @@ src/
 
 ---
 
-*Last Updated: 2025-11-12*
+*Last Updated: 2025-11-13*
 *Recent Gallery Enhancement: 2025-11-12*
 *Recent Theme Implementation: 2025-11-12*
+*Recent PHP Proxy Implementation: 2025-11-13*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management

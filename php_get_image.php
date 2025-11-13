@@ -101,7 +101,7 @@ function fetchImageContent($itemId, $accessToken) {
         ]
     ]);
 
-    $siteResponse = file_get_contents($siteUrl, false, $siteContext);
+    $siteResponse = @file_get_contents($siteUrl, false, $siteContext);
     if ($siteResponse === false) {
         throw new Exception('Failed to get site info');
     }
@@ -109,7 +109,7 @@ function fetchImageContent($itemId, $accessToken) {
     $siteData = json_decode($siteResponse, true);
     $siteId = $siteData['id'];
 
-    $contentUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
+    $contentUrl = "https://graph.microsoft.com/v1.0/sites/" . urlencode($siteId) . "/drive/items/{$itemId}/content";
 
     $context = stream_context_create([
         'http' => [
@@ -118,7 +118,7 @@ function fetchImageContent($itemId, $accessToken) {
         ]
     ]);
 
-    $response = file_get_contents($contentUrl, false, $context);
+    $response = @file_get_contents($contentUrl, false, $context);
 
     if ($response === false) {
         throw new Exception('Failed to fetch image content');
@@ -142,11 +142,12 @@ try {
     echo $imageData;
 
 } catch (Exception $e) {
-    // Return error as JSON for debugging
+    // Log error and return generic error to avoid corrupting image headers
+    error_log('Image fetch error: ' . $e->getMessage());
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode([
-        'error' => $e->getMessage()
+        'error' => 'Failed to fetch image'
     ]);
 }
 ?>

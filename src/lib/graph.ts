@@ -25,5 +25,7 @@ export function pickThumbnailUrl(item: any): string | undefined {
 
 // Content URL pro full-size image (pro proxy nebo direct access)
 export function getImageContentUrl(proxyUrl: string, itemId: string) {
-  return `${proxyUrl}?action=get_image&id=${encodeURIComponent(itemId)}`;
+  // Use the dedicated php_get_image.php endpoint instead of action parameter
+  const baseUrl = proxyUrl.replace('/php_proxy.php', '');
+  return `${baseUrl}/php_get_image.php?id=${encodeURIComponent(itemId)}`;
 }
