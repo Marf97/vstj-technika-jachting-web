@@ -1,91 +1,72 @@
-# VŠTJ Technika Jachting Web - Deployment Guide
+# Deployment Instructions for VSTJ Technika Jachting Web
 
-## 📁 File Structure for Apache Server
+## Environment Variables Setup
 
-Based on your webFiles.JPG, here's how to organize the files on your Apache server:
-
-```
-/var/www/html/ (or your web root)
-├── jachting/                    # Your subdomain/subfolder
-│   ├── index.html              # Built React app (from dist/)
-│   ├── assets/                 # React build assets
-│   ├── api/                    # PHP API folder
-│   │   ├── php_proxy.php       # Main gallery API
-│   │   └── php_get_image.php   # Individual image API
-│   └── (other React files...)
-│
-└── (other websites/domains...)
-```
-
-## 🚀 Deployment Steps
-
-### 1. Prepare React Build
+### 1. PHP Proxy Secrets
+Create a `.env.php` file in the project root with your Azure AD secrets:
 
 ```bash
+CLIENT_ID=your_azure_client_id
+TENANT_ID=your_azure_tenant_id
+CLIENT_SECRET=your_azure_client_secret
+```
+
+**Important:** This file is gitignored and should never be committed to version control.
+
+### 2. Frontend Environment Variables
+Update the existing `.env` file with production URLs:
+
+```bash
+VITE_AAD_CLIENT_ID=your_frontend_client_id
+VITE_AAD_TENANT_ID=your_tenant_id
+VITE_SITE_HOST=technikapraha.sharepoint.com
+VITE_SITE_PATH=sites/jachting
+VITE_FOLDER_PATH=verejne/fotky-verejne
+```
+
+## Docker Deployment Options
+
+### Option A: Local Development with Docker
+```bash
+# Start the PHP proxy server
+docker-compose up -d
+
+# Start the React development server
+npm run dev
+```
+
+### Option B: Production Build
+```bash
+# Build the React application
 npm run build
+
+# Deploy the dist/ folder to your web server
+# The PHP proxy should be deployed separately on your server
 ```
 
-This creates a `dist/` folder with your built React application.
+## Production Server Setup
 
-### 2. Upload Files to Server
+### PHP Proxy Deployment
+1. Deploy `php_proxy.php` and `php_get_image.php` to your PHP-enabled server
+2. Set environment variables on the server:
+   - `CLIENT_ID`
+   - `TENANT_ID`
+   - `CLIENT_SECRET`
+3. Ensure proper CORS headers are set for your production domain
 
-Upload the following structure to your `jachting` subfolder:
+### Static Files Deployment
+1. Upload the contents of `dist/` to your web server
+2. Configure the server to serve static files
+3. Set up HTTPS (recommended)
 
-**Frontend Files (from `dist/`):**
-- `index.html`
-- `assets/` folder
-- All other files from the build
+## Security Notes
+- Never commit `.env.php` to version control
+- Use strong, unique secrets for production
+- Regularly rotate client secrets
+- Ensure your web server has proper security headers
 
-**API Files:**
-- `php_proxy.php` → `/jachting/api/php_proxy.php`
-- `php_get_image.php` → `/jachting/api/php_get_image.php`
-
-### 3. Update PHP Secrets
-
-Edit both PHP files on your server:
-
-```php
-// Replace this line in both files:
-$clientSecret = 'YOUR_ACTUAL_CLIENT_SECRET_HERE';
-
-// With your actual client secret from Azure AD
-```
-
-### 4. Verify File Permissions
-
-Make sure Apache can execute the PHP files:
-```bash
-chmod 644 /path/to/jachting/api/*.php
-```
-
-## 🔧 URL Configuration
-
-Your React app will make requests to:
-- `https://jachting.technika-praha.cz/api/php_proxy.php`
-- `https://jachting.technika-praha.cz/api/php_get_image.php`
-
-The PHP files are already configured with the correct CORS origin.
-
-## ✅ Testing
-
-1. Visit `https://jachting.technika-praha.cz`
-2. Click on "Galerie"
-3. Check browser console for any errors
-4. Verify images load from SharePoint
-
-## 🔒 Security Notes
-
-- Client secret is stored server-side only
-- Never commit PHP files with real secrets to git
-- Consider using environment variables for secrets in production PHP setups
-
-## 🆘 Troubleshooting
-
-If you get 500 errors:
-- Check PHP error logs: `/var/log/apache2/error.log`
-- Verify client secret is correct
-- Ensure Azure app has proper permissions
-
-If you get CORS errors:
-- Verify the domain in PHP CORS headers matches your setup
-- Check that requests are coming from `https://jachting.technika-praha.cz`
+## Troubleshooting
+- Verify all environment variables are set
+- Check PHP server logs for errors
+- Ensure CORS is properly configured for production domain
+- Test API endpoints independently before full deployment

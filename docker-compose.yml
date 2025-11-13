@@ -1,0 +1,13 @@
+services:
+  php-proxy:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - ./php_proxy.php:/var/www/html/php_proxy.php
+      - ./php_get_image.php:/var/www/html/php_get_image.php
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    env_file:
+      - .env.php
+    restart: unless-stopped

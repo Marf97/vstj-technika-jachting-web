@@ -7,6 +7,7 @@ dist-ssr/
 # --- ENV SOUBORY (tajné údaje) ---
 .env
 .env.*.local
+.env.php
 
 # --- SYSTÉMOVÉ A IDE SOUBORY ---
 .DS_Store
@@ -33,7 +34,6 @@ vite.config.ts.timestamp-*
 # žádné speciální soubory netvoří, ale pro jistotu:
 .msal_cache/
 auth/
-php*
 
 # --- GITLAB CI (pokud používáš CI/CD) ---
 # ignoruj lokální CI konfigurace, pokud máš varianty:
