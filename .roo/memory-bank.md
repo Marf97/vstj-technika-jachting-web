@@ -121,7 +121,7 @@ Environment:
 - **Types**: TypeScript for utilities, JSX for components
 - **UI Patterns**: Masonry image layouts, modal dialogs with theme-styled close buttons, PDF-inspired header layout
 - **Infrastructure**: Docker containers for development, environment variable secrets management
-- **Security**: Gitignored secrets, CORS validation, proper error handling without information leakage
+- **Security**: Gitignored secrets, CORS validation, AES-256 encrypted token caching, proper error handling without information leakage
 - **Naming**: Czech comments, English technical terms, theme-aware component naming
 
 ## Recent Developments & Gallery Improvements
@@ -137,6 +137,8 @@ Environment:
 - **Dual Endpoints**: Separate PHP files for image listing and individual image downloads
 - **CORS Support**: Dynamic origin validation for both development and production domains
 - **Environment Management**: Gitignored secrets file with Docker environment loading
+- **Performance Caching**: AES-256 encrypted token caching (50min) and gallery data caching (5min)
+- **Security Standards**: OAuth 2.0 compliant token storage with encryption and access controls
 
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
@@ -152,7 +154,7 @@ Environment:
 - **Content Management**: Expand markdown-based system, add more content sections
 - **Authentication UX**: Login/logout buttons, better error handling, user session management
 - **Mobile Optimization**: Responsive header layout with vertical navbar stacking, touch-friendly navigation, responsive gallery with consistent aspect ratios
-- **Performance**: Image loading optimization, lazy loading for gallery
+- **Performance**: AES-256 encrypted token caching, gallery data caching, optimized image loading
 - **PWA Features**: Offline capabilities, service workers, app manifest
 - **Additional Sections**: News/blog functionality, contact forms, member registration
 
@@ -162,6 +164,9 @@ Environment:
 - MSAL handles token storage securely
 - SharePoint permissions appropriately scoped
 - No sensitive data in client-side code
+- AES-256 encrypted server-side token caching
+- Restricted file permissions (0600) on cache files
+- OAuth 2.0 compliant token management with automatic expiration
 
 ## Deployment Notes
 - Static site deployable to any web server
