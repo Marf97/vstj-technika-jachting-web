@@ -164,6 +164,25 @@ Environment:
 - **Duplicate Prevention**: Proper offset management prevents loading the same images repeatedly
 - **Backend Caching**: Server-side image caching with 5-minute TTL for optimal performance
 
+**Gallery Year-Based Browsing Implementation (2025-11-15):**
+- **Dual Browsing Modes**: Default year-fallback mode ("Nejnovější fotky") and specific year selection mode
+- **Default Mode Logic**: Starts with current year (2025), automatically falls back to previous years (2024, 2023, etc.) when exhausted
+- **Year Selector UI**: MUI Button with dropdown menu showing available years from SharePoint folders
+- **Year Captions**: In default mode, photos are visually grouped under year headers spanning full grid width
+- **Persistent Header**: Gallery title and year selector remain visible during all loading states
+- **Loading Animation**: Professional bordered box with circular progress indicator and Czech text
+- **PHP Proxy Enhancements**: Added `year` parameter support and `list_years` endpoint for dynamic year folder enumeration
+- **Year Folder Structure**: Images organized in numeric year folders (2025, 2024, etc.) within base gallery folder
+- **Year-Specific Browsing**: When selecting a specific year, infinite scroll is limited to that year's images only
+- **Fallback Algorithm**: Collects and sorts images from all available year folders in descending year order
+- **Performance Optimization**: Year folder enumeration cached, individual year requests avoid base folder caching
+- **User Experience**: Clear visual indication of current browsing mode, seamless year switching, no reloading on same selection
+- **Error Handling**: Graceful degradation when year folders are inaccessible, maintains backward compatibility
+- **Frontend Integration**: React state management for year selection, loading states, and UI updates with TypeScript support
+- **Backend Architecture**: Server-side pagination with year-aware image collection and sorting
+- **Bug Fixes**: Prevents unnecessary reloading when re-selecting the same year option
+- **Responsive Design**: Year headers and controls work across all screen sizes (mobile, tablet, desktop)
+
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
 - **PDF-Driven Design**: All colors and fonts extracted from VSTJ_navrh_pokus.pdf brand guidelines
@@ -207,6 +226,7 @@ Environment:
 *Recent Performance Optimization: 2025-11-15*
 *Recent Responsive Layout Update: 2025-11-15*
 *Recent Infinite Scrolling Gallery: 2025-11-15*
+*Recent Year-Based Gallery Browsing: 2025-11-15*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management

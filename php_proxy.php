@@ -198,9 +198,33 @@ try {
 
     $siteTime = microtime(true) - $startTime - $tokenTime;
 
-    // Get pagination parameters - use Graph API standard $top and $skip
+    // Get pagination and year parameters
     $top = isset($_GET['top']) ? intval($_GET['top']) : null;
     $skip = isset($_GET['skip']) ? intval($_GET['skip']) : 0;
+    $year = isset($_GET['year']) ? trim($_GET['year']) : null;
+    $listYears = isset($_GET['list_years']) && $_GET['list_years'] === '1';
+
+    // Handle year folder enumeration if requested
+    if ($listYears) {
+        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$folderPath}:/children?\$select=id,name,folder";
+        $folderData = callGraphAPI($folderUrl, $accessToken);
+
+        // Filter for year folders (numeric names like 2025, 2024, etc.)
+        $yearFolders = array_filter($folderData['value'], function($item) {
+            return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
+        });
+
+        // Sort years descending (newest first)
+        usort($yearFolders, function($a, $b) {
+            return intval($b['name']) - intval($a['name']);
+        });
+
+        echo json_encode([
+            'success' => true,
+            'years' => array_map(function($item) { return $item['name']; }, $yearFolders)
+        ]);
+        exit;
+    }
 
     // Check cache for gallery data (5-minute cache)
     $galleryCacheFile = sys_get_temp_dir() . '/gallery_cache_' . md5($siteId . $folderPath) . '.json';
@@ -217,18 +241,12 @@ try {
         }
     }
 
-    // For pagination to work properly, we need to get ALL images and paginate on the server side
-    // since Graph API pagination is complex and we need consistent sorting
-    static $allImagesCache = null;
-    static $allImagesCacheTime = 0;
-
-    if ($allImagesCache === null || (time() - $allImagesCacheTime) > 300) { // 5 minute cache
-        $folderStartTime = microtime(true);
-
-        // Get ALL folder contents first
-        $encodedFolderPath = urlencode($folderPath);
-        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedFolderPath}:/children?\$select=id,name,createdDateTime,lastModifiedDateTime,webUrl,file,folder&\$expand=thumbnails";
-        error_log("Graph API URL: " . $folderUrl);
+    // Handle year-specific fetching or default browsing
+    if ($year) {
+        // Year-specific mode: fetch from specific year folder
+        $yearFolderPath = $folderPath . '/' . $year;
+        $encodedYearFolderPath = urlencode($yearFolderPath);
+        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedYearFolderPath}:/children?\$select=id,name,createdDateTime,lastModifiedDateTime,webUrl,file,folder&\$expand=thumbnails";
         $allFolderData = callGraphAPI($folderUrl, $accessToken);
 
         // Sort images by creation date descending in PHP
@@ -241,23 +259,72 @@ try {
         }
 
         $allImagesCache = $allFolderData['value'];
-        $allImagesCacheTime = time();
+        $cacheValid = false; // No cache for year-specific requests
+    } else {
+        // Default mode: implement year-aware fallback browsing
+        // Start with current year, then fall back to previous years when exhausted
 
-        $folderApiTime = microtime(true) - $folderStartTime;
+        // First, get available year folders to determine browsing order
+        $yearFoldersUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$folderPath}:/children?\$select=id,name,folder";
+        $yearFoldersData = callGraphAPI($yearFoldersUrl, $accessToken);
+
+        // Filter and sort year folders (newest first)
+        $yearFolders = array_filter($yearFoldersData['value'], function($item) {
+            return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
+        });
+        usort($yearFolders, function($a, $b) {
+            return intval($b['name']) - intval($a['name']);
+        });
+
+        // Collect all images from year folders in order (newest year first)
+        $allImages = [];
+        foreach ($yearFolders as $yearFolder) {
+            $yearName = $yearFolder['name'];
+            $yearFolderPath = $folderPath . '/' . $yearName;
+            $encodedYearFolderPath = urlencode($yearFolderPath);
+            $yearFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedYearFolderPath}:/children?\$select=id,name,createdDateTime,lastModifiedDateTime,webUrl,file,folder&\$expand=thumbnails";
+
+            try {
+                $yearFolderData = callGraphAPI($yearFolderUrl, $accessToken);
+                if (isset($yearFolderData['value']) && is_array($yearFolderData['value'])) {
+                    // Sort images within year by creation date descending
+                    usort($yearFolderData['value'], function($a, $b) {
+                        $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
+                        $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
+                        return $bTime - $aTime;
+                    });
+
+                    // Add year metadata to each image for fallback logic
+                    foreach ($yearFolderData['value'] as &$item) {
+                        $item['_year'] = $yearName;
+                    }
+
+                    $allImages = array_merge($allImages, $yearFolderData['value']);
+                }
+            } catch (Exception $e) {
+                // Skip folders that can't be accessed
+                error_log("Failed to access year folder {$yearName}: " . $e->getMessage());
+            }
+        }
+
+        // No additional sorting needed - images are already in year order (newest year first)
+        // and within each year, newest images first
+        $allImagesCache = $allImages;
+        $cacheValid = false; // Don't cache dynamic year-based browsing
     }
 
     // Apply pagination to the cached/sorted results
     $folderData = ['value' => array_slice($allImagesCache, $skip, $top ?: null)];
 
-    // Filter for images only
+    // Filter for images only (exclude folders)
     $images = array_filter($folderData['value'], function($item) {
         return isset($item['file']) && isset($item['file']['mimeType']) &&
                strpos($item['file']['mimeType'], 'image/') === 0;
     });
 
-    // Handle pagination response - Graph API returns paginated results directly
+    // Handle pagination response
     $totalImages = count($images);
-    $paginatedImages = $images; // Graph API already handles pagination
+    $paginatedImages = $images;
 
     $totalTime = microtime(true) - $startTime;
     $filterTime = microtime(true) - $startTime - $tokenTime - $siteTime;
@@ -271,12 +338,19 @@ try {
     // Check if there are more results available based on our pagination
     $hasMore = ($skip + count($paginatedImages)) < count($allImagesCache);
 
+    // For year-specific mode, hasMore is based on year folder pagination
+    // For default mode, hasMore remains based on total images
+    if ($year) {
+        $hasMore = ($skip + count($paginatedImages)) < count($allImagesCache);
+    }
+
     // Return success response
     echo json_encode([
         'success' => true,
         'images' => array_values($paginatedImages),
         'total' => count($allImagesCache),
         'hasMore' => $hasMore,
+        'year' => $year,
         '_debug' => [
             'performance' => [
                 'token_time' => round($tokenTime, 3),
@@ -288,7 +362,8 @@ try {
             'top' => $top,
             'skip' => $skip,
             'cached' => $cacheValid ? 'gallery' : 'none',
-            'has_more' => $hasMore
+            'has_more' => $hasMore,
+            'year_mode' => $year ? 'specific' : 'default'
         ]
     ]);
 

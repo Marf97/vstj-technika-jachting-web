@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { fetchImagesFromProxy, pickThumbnailUrl, getImageContentUrl } from "../lib/graph";
+import { fetchImagesFromProxy, fetchAvailableYears, pickThumbnailUrl, getImageContentUrl } from "../lib/graph";
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import Typography from '@mui/material/Typography';
@@ -8,11 +8,15 @@ import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
-type Photo = { id: string; name: string; src: string; item: any };
+type Photo = { id: string; name: string; src: string; item: any; year?: string };
 
 export default function Gallery() {
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<(Photo | string)[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
@@ -24,14 +28,20 @@ export default function Gallery() {
   const observerRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef(0);
 
+  // Year-based browsing state
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string | null>(null);
+  const [yearMenuAnchor, setYearMenuAnchor] = useState<null | HTMLElement>(null);
+  const [yearsLoading, setYearsLoading] = useState(false);
+
   const PROXY_URL = '/api/php_proxy.php'; // Vite proxy will handle this
   const INITIAL_LOAD = 20;
   const LOAD_MORE = 10;
 
-  const loadImages = useCallback(async (limit: number, offset: number) => {
-    const result = await fetchImagesFromProxy(PROXY_URL, limit, offset);
+  const loadImages = useCallback(async (limit: number, offset: number, year?: string) => {
+    const result = await fetchImagesFromProxy(PROXY_URL, limit, offset, year || selectedYear || undefined);
     return result;
-  }, [PROXY_URL]);
+  }, [PROXY_URL, selectedYear]);
 
   const loadMoreImages = useCallback(async () => {
     if (loadingMore || !hasMore) return;
@@ -51,7 +61,43 @@ export default function Gallery() {
           };
         });
 
-        setPhotos(prev => [...prev, ...photosResolved]);
+        setPhotos(prev => {
+          const currentPhotos = [...prev];
+          // Handle adding more photos with year grouping in default mode
+          if (selectedYear === null) {
+            const photosByYear = new Map<string, Photo[]>();
+
+            // Group new photos by year
+            photosResolved.forEach(photo => {
+              const year = photo.year || 'Neznámý rok';
+              if (!photosByYear.has(year)) {
+                photosByYear.set(year, []);
+              }
+              photosByYear.get(year)!.push(photo);
+            });
+
+            // Merge with existing photos
+            photosByYear.forEach((newPhotos, year) => {
+              const existingYearIndex = currentPhotos.findIndex(p => typeof p === 'string' && p === year);
+              if (existingYearIndex >= 0) {
+                // Add to existing year section
+                let insertIndex = existingYearIndex + 1;
+                while (insertIndex < currentPhotos.length && typeof currentPhotos[insertIndex] === 'object' && (currentPhotos[insertIndex] as Photo).year === year) {
+                  insertIndex++;
+                }
+                currentPhotos.splice(insertIndex, 0, ...newPhotos);
+              } else {
+                // Add new year section
+                currentPhotos.push(year);
+                currentPhotos.push(...newPhotos);
+              }
+            });
+
+            return currentPhotos;
+          } else {
+            return [...prev, ...photosResolved];
+          }
+        });
         offsetRef.current += LOAD_MORE;
         setHasMore(result.hasMore);
       } else {
@@ -87,6 +133,50 @@ export default function Gallery() {
     setFullImageLoading(false);
   };
 
+  const handleYearMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setYearMenuAnchor(event.currentTarget);
+  };
+
+  const handleYearMenuClose = () => {
+    setYearMenuAnchor(null);
+  };
+
+  const handleYearSelect = (year: string | null) => {
+    setYearMenuAnchor(null);
+
+    // Only reset and reload if the year selection actually changed
+    if (selectedYear !== year) {
+      setSelectedYear(year);
+      // Reset gallery state when switching years
+      setPhotos([]);
+      setLoading(true);
+      setHasMore(true);
+      setTotalImages(0);
+      offsetRef.current = 0;
+      setError(null);
+    }
+    // If same year is selected, do nothing - just close the menu
+  };
+
+  const loadAvailableYears = useCallback(async () => {
+    if (availableYears.length > 0) return; // Already loaded
+
+    try {
+      setYearsLoading(true);
+      const years = await fetchAvailableYears(PROXY_URL);
+      setAvailableYears(years);
+    } catch (e: any) {
+      console.error('Failed to load available years:', e);
+      // Continue without years - gallery will work in default mode
+    } finally {
+      setYearsLoading(false);
+    }
+  }, [PROXY_URL, availableYears.length]);
+
+  useEffect(() => {
+    loadAvailableYears();
+  }, [loadAvailableYears]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -95,18 +185,40 @@ export default function Gallery() {
         // Fetch initial images from PHP proxy
         const result = await loadImages(INITIAL_LOAD, 0);
 
-        // Process images - pick thumbnails
+        // Process images - pick thumbnails and extract year info
         const photosResolved: Photo[] = result.images.map((it: any) => {
           const thumb = pickThumbnailUrl(it);
           return {
             id: it.id,
             name: it.name,
             src: thumb || getImageContentUrl(PROXY_URL, it.id), // fallback to full image if no thumbnail
-            item: it
+            item: it,
+            year: it._year || undefined // Extract year from backend metadata
           };
         });
 
-        setPhotos(photosResolved);
+        // Group photos by year for display (only in default mode)
+        if (selectedYear === null && photosResolved.length > 0) {
+          const photosByYear = new Map<string, Photo[]>();
+          photosResolved.forEach(photo => {
+            const year = photo.year || 'Neznámý rok';
+            if (!photosByYear.has(year)) {
+              photosByYear.set(year, []);
+            }
+            photosByYear.get(year)!.push(photo);
+          });
+
+          // Convert to grouped structure for rendering
+          const groupedPhotos: (string | Photo)[] = [];
+          photosByYear.forEach((photos, year) => {
+            groupedPhotos.push(year); // Year header
+            groupedPhotos.push(...photos); // Photos for this year
+          });
+
+          setPhotos(groupedPhotos);
+        } else {
+          setPhotos(photosResolved);
+        }
         setTotalImages(result.total);
         setHasMore(result.hasMore);
         offsetRef.current = INITIAL_LOAD;
@@ -117,7 +229,7 @@ export default function Gallery() {
         setLoading(false);
       }
     })();
-  }, [loadImages, PROXY_URL]);
+  }, [loadImages, PROXY_URL, selectedYear]);
 
   // Intersection Observer for infinite scrolling
   useEffect(() => {
@@ -141,18 +253,86 @@ export default function Gallery() {
     };
   }, [hasMore, loading, loadingMore, loadMoreImages]);
 
-  if (loading) return <Typography sx={{ p: 4 }}>Načítám fotky…</Typography>;
-  if (error) return <Typography sx={{ p: 4, color: 'error.main' }}>Chyba: {error}</Typography>;
-
   return (
     <div>
-      <Typography variant="h2" color="primary.main" gutterBottom>
-        Galerie
-      </Typography>
-      {!photos.length ? (
-        <Typography>Ve složce zatím nejsou žádné obrázky.</Typography>
-      ) : (
+      {/* Static header - always visible */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h2" color="primary.main">
+          Galerie
+        </Typography>
+
+        {/* Year selector button */}
+        <Button
+          variant="outlined"
+          endIcon={<KeyboardArrowDownIcon />}
+          onClick={handleYearMenuOpen}
+          disabled={yearsLoading}
+          sx={{
+            minWidth: 120,
+            '&:hover': { bgcolor: 'primary.main', color: 'white' }
+          }}
+        >
+          {selectedYear ? `${selectedYear}` : 'Nejnovější fotky'}
+        </Button>
+
+        {/* Loading indicator for years */}
+        {yearsLoading && (
+          <Typography sx={{ ml: 1, color: 'text.secondary' }}>
+            Načítám roky...
+          </Typography>
+        )}
+
+        {/* Year selection menu */}
+        <Menu
+          anchorEl={yearMenuAnchor}
+          open={Boolean(yearMenuAnchor)}
+          onClose={handleYearMenuClose}
+        >
+          <MenuItem onClick={() => handleYearSelect(null)}>
+            <Typography fontWeight={selectedYear === null ? 'bold' : 'normal'}>
+              Nejnovější fotky
+            </Typography>
+          </MenuItem>
+          {availableYears.map((year) => (
+            <MenuItem key={year} onClick={() => handleYearSelect(year)}>
+              <Typography fontWeight={selectedYear === year ? 'bold' : 'normal'}>
+                {year}
+              </Typography>
+            </MenuItem>
+          ))}
+        </Menu>
+      </Box>
+
+      {/* Gallery content - shows loading/error states */}
+      {loading && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: 6,
+            border: '2px solid',
+            borderColor: 'primary.main',
+            borderRadius: 2,
+            minHeight: '120px',
+            bgcolor: 'background.paper'
+          }}
+        >
+          <CircularProgress size={48} sx={{ mb: 2 }} />
+          <Typography variant="h6" color="primary.main" sx={{ textAlign: 'center' }}>
+            Načítám fotky…
+          </Typography>
+        </Box>
+      )}
+      {error && <Typography sx={{ p: 4, color: 'error.main' }}>Chyba: {error}</Typography>}
+
+      {!loading && !error && (
         <>
+          {!photos.length ? (
+            <Typography>Ve složce zatím nejsou žádné obrázky.</Typography>
+          ) : (
+            <>
           <ImageList
             variant="standard"
             cols={4}
@@ -167,22 +347,36 @@ export default function Gallery() {
               }
             }}
           >
-            {photos.map((p) => (
-              <ImageListItem key={p.id} sx={{ aspectRatio: '4/3' }}>
-                <img
-                  src={p.src}
-                  alt={p.name}
-                  loading="lazy"
-                  style={{
-                    cursor: 'pointer',
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover'
-                  }}
-                  onClick={() => handlePhotoClick(p, p.item)}
-                />
-              </ImageListItem>
-            ))}
+            {photos.map((p, index) => {
+              if (typeof p === 'string') {
+                // Year header
+                return (
+                  <Box key={`year-${p}-${index}`} sx={{ gridColumn: '1 / -1', mt: 2, mb: 1 }}>
+                    <Typography variant="h4" color="primary.main" sx={{ fontWeight: 'bold', borderBottom: 2, borderColor: 'primary.main', pb: 1 }}>
+                      {p}
+                    </Typography>
+                  </Box>
+                );
+              } else {
+                // Photo item
+                return (
+                  <ImageListItem key={p.id} sx={{ aspectRatio: '4/3' }}>
+                    <img
+                      src={p.src}
+                      alt={p.name}
+                      loading="lazy"
+                      style={{
+                        cursor: 'pointer',
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onClick={() => handlePhotoClick(p, p.item)}
+                    />
+                  </ImageListItem>
+                );
+              }
+            })}
           </ImageList>
 
           {/* Loading indicator for infinite scroll */}
@@ -202,53 +396,55 @@ export default function Gallery() {
             </Typography>
           )}
 
-          <Dialog
-            open={!!selectedPhoto}
-            onClose={handleCloseDialog}
-            fullScreen
-            sx={{
-              '& .MuiDialog-paper': {
-                backgroundColor: 'black',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }
-            }}
-          >
-            <IconButton
-              onClick={handleCloseDialog}
-              sx={{
-                position: 'absolute',
-                right: 16,
-                top: 16,
-                bgcolor: '#1F2646',
-                color: 'white',
-                '&:hover': { bgcolor: '#6396C1' },
-                zIndex: 1
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
-            {selectedPhoto && (
-              <>
-                {fullImageLoading && (
-                  <Typography sx={{ color: 'white' }}>Načítám obrázek…</Typography>
+              <Dialog
+                open={!!selectedPhoto}
+                onClose={handleCloseDialog}
+                fullScreen
+                sx={{
+                  '& .MuiDialog-paper': {
+                    backgroundColor: 'black',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }
+                }}
+              >
+                <IconButton
+                  onClick={handleCloseDialog}
+                  sx={{
+                    position: 'absolute',
+                    right: 16,
+                    top: 16,
+                    bgcolor: '#1F2646',
+                    color: 'white',
+                    '&:hover': { bgcolor: '#6396C1' },
+                    zIndex: 1
+                  }}
+                >
+                  <CloseIcon />
+                </IconButton>
+                {selectedPhoto && (
+                  <>
+                    {fullImageLoading && (
+                      <Typography sx={{ color: 'white' }}>Načítám obrázek…</Typography>
+                    )}
+                    {(fullImageUrl || selectedPhoto.src) && !fullImageLoading && (
+                      <img
+                        src={fullImageUrl || selectedPhoto.src}
+                        alt={selectedPhoto.name}
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                          display: 'block'
+                        }}
+                      />
+                    )}
+                  </>
                 )}
-                {(fullImageUrl || selectedPhoto.src) && !fullImageLoading && (
-                  <img
-                    src={fullImageUrl || selectedPhoto.src}
-                    alt={selectedPhoto.name}
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                      objectFit: 'contain',
-                      display: 'block'
-                    }}
-                  />
-                )}
-              </>
-            )}
-          </Dialog>
+              </Dialog>
+            </>
+          )}
         </>
       )}
     </div>
