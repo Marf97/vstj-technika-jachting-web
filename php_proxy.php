@@ -198,6 +198,10 @@ try {
 
     $siteTime = microtime(true) - $startTime - $tokenTime;
 
+    // Get pagination parameters - use Graph API standard $top and $skip
+    $top = isset($_GET['top']) ? intval($_GET['top']) : null;
+    $skip = isset($_GET['skip']) ? intval($_GET['skip']) : 0;
+
     // Check cache for gallery data (5-minute cache)
     $galleryCacheFile = sys_get_temp_dir() . '/gallery_cache_' . md5($siteId . $folderPath) . '.json';
     $cacheValid = false;
@@ -213,30 +217,47 @@ try {
         }
     }
 
-    if (!$cacheValid) {
+    // For pagination to work properly, we need to get ALL images and paginate on the server side
+    // since Graph API pagination is complex and we need consistent sorting
+    static $allImagesCache = null;
+    static $allImagesCacheTime = 0;
+
+    if ($allImagesCache === null || (time() - $allImagesCacheTime) > 300) { // 5 minute cache
         $folderStartTime = microtime(true);
 
-        // Get folder contents
+        // Get ALL folder contents first
         $encodedFolderPath = urlencode($folderPath);
-        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedFolderPath}:/children?\$select=id,name,webUrl,file,folder&\$expand=thumbnails";
-        $folderData = callGraphAPI($folderUrl, $accessToken);
+        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedFolderPath}:/children?\$select=id,name,createdDateTime,lastModifiedDateTime,webUrl,file,folder&\$expand=thumbnails";
+        error_log("Graph API URL: " . $folderUrl);
+        $allFolderData = callGraphAPI($folderUrl, $accessToken);
+
+        // Sort images by creation date descending in PHP
+        if (isset($allFolderData['value']) && is_array($allFolderData['value'])) {
+            usort($allFolderData['value'], function($a, $b) {
+                $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
+                $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
+                return $bTime - $aTime; // descending order
+            });
+        }
+
+        $allImagesCache = $allFolderData['value'];
+        $allImagesCacheTime = time();
 
         $folderApiTime = microtime(true) - $folderStartTime;
-
-        // Cache the result for 5 minutes
-        $cacheData = json_encode([
-            'data' => $folderData,
-            'expires' => time() + 300 // 5 minutes
-        ]);
-        @file_put_contents($galleryCacheFile, $cacheData);
-        @chmod($galleryCacheFile, 0600);
     }
+
+    // Apply pagination to the cached/sorted results
+    $folderData = ['value' => array_slice($allImagesCache, $skip, $top ?: null)];
 
     // Filter for images only
     $images = array_filter($folderData['value'], function($item) {
         return isset($item['file']) && isset($item['file']['mimeType']) &&
                strpos($item['file']['mimeType'], 'image/') === 0;
     });
+
+    // Handle pagination response - Graph API returns paginated results directly
+    $totalImages = count($images);
+    $paginatedImages = $images; // Graph API already handles pagination
 
     $totalTime = microtime(true) - $startTime;
     $filterTime = microtime(true) - $startTime - $tokenTime - $siteTime;
@@ -247,18 +268,27 @@ try {
         $tokenTime, $siteTime, (microtime(true) - $startTime - $tokenTime - $siteTime - $filterTime), $filterTime, $totalTime
     ));
 
+    // Check if there are more results available based on our pagination
+    $hasMore = ($skip + count($paginatedImages)) < count($allImagesCache);
+
     // Return success response
     echo json_encode([
         'success' => true,
-        'images' => array_values($images),
+        'images' => array_values($paginatedImages),
+        'total' => count($allImagesCache),
+        'hasMore' => $hasMore,
         '_debug' => [
             'performance' => [
                 'token_time' => round($tokenTime, 3),
                 'site_time' => round($siteTime, 3),
                 'total_time' => round($totalTime, 3)
             ],
-            'image_count' => count($images),
-            'cached' => $cacheValid ? 'gallery' : 'none'
+            'image_count' => count($paginatedImages),
+            'total_images' => count($allImagesCache),
+            'top' => $top,
+            'skip' => $skip,
+            'cached' => $cacheValid ? 'gallery' : 'none',
+            'has_more' => $hasMore
         ]
     ]);
 
@@ -266,7 +296,7 @@ try {
     // Return error response
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to call Graph API'
+        'error' => $e->getMessage()
     ]);
 }
 ?>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { fetchImagesFromProxy, pickThumbnailUrl, getImageContentUrl } from "../lib/graph";
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
@@ -6,6 +6,8 @@ import Typography from '@mui/material/Typography';
 import Dialog from '@mui/material/Dialog';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
 type Photo = { id: string; name: string; src: string; item: any };
 
@@ -16,8 +18,52 @@ export default function Gallery() {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [fullImageUrl, setFullImageUrl] = useState<string | null>(null);
   const [fullImageLoading, setFullImageLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalImages, setTotalImages] = useState(0);
+  const observerRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(0);
 
   const PROXY_URL = '/api/php_proxy.php'; // Vite proxy will handle this
+  const INITIAL_LOAD = 20;
+  const LOAD_MORE = 10;
+
+  const loadImages = useCallback(async (limit: number, offset: number) => {
+    const result = await fetchImagesFromProxy(PROXY_URL, limit, offset);
+    return result;
+  }, [PROXY_URL]);
+
+  const loadMoreImages = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      const result = await loadImages(LOAD_MORE, offsetRef.current);
+
+      if (result.images.length > 0) {
+        const photosResolved: Photo[] = result.images.map((it: any) => {
+          const thumb = pickThumbnailUrl(it);
+          return {
+            id: it.id,
+            name: it.name,
+            src: thumb || getImageContentUrl(PROXY_URL, it.id), // fallback to full image if no thumbnail
+            item: it
+          };
+        });
+
+        setPhotos(prev => [...prev, ...photosResolved]);
+        offsetRef.current += LOAD_MORE;
+        setHasMore(result.hasMore);
+      } else {
+        setHasMore(false);
+      }
+    } catch (e: any) {
+      console.error('Failed to load more images:', e);
+      setError(e.message ?? String(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, loadImages, PROXY_URL]);
 
   const handlePhotoClick = async (photo: Photo, item: any) => {
     setSelectedPhoto(photo);
@@ -46,11 +92,11 @@ export default function Gallery() {
       try {
         setLoading(true);
 
-        // Fetch images from PHP proxy
-        const imageItems = await fetchImagesFromProxy(PROXY_URL);
+        // Fetch initial images from PHP proxy
+        const result = await loadImages(INITIAL_LOAD, 0);
 
         // Process images - pick thumbnails
-        const photosResolved: Photo[] = imageItems.map((it: any) => {
+        const photosResolved: Photo[] = result.images.map((it: any) => {
           const thumb = pickThumbnailUrl(it);
           return {
             id: it.id,
@@ -61,6 +107,9 @@ export default function Gallery() {
         });
 
         setPhotos(photosResolved);
+        setTotalImages(result.total);
+        setHasMore(result.hasMore);
+        offsetRef.current = INITIAL_LOAD;
         setError(null);
       } catch (e: any) {
         setError(e.message ?? String(e));
@@ -68,7 +117,29 @@ export default function Gallery() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [loadImages, PROXY_URL]);
+
+  // Intersection Observer for infinite scrolling
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          loadMoreImages();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observer.unobserve(observerRef.current);
+      }
+    };
+  }, [hasMore, loading, loadingMore, loadMoreImages]);
 
   if (loading) return <Typography sx={{ p: 4 }}>Načítám fotky…</Typography>;
   if (error) return <Typography sx={{ p: 4, color: 'error.main' }}>Chyba: {error}</Typography>;
@@ -113,6 +184,23 @@ export default function Gallery() {
               </ImageListItem>
             ))}
           </ImageList>
+
+          {/* Loading indicator for infinite scroll */}
+          {loadingMore && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+              <CircularProgress size={40} />
+            </Box>
+          )}
+
+          {/* Observer target for triggering load more */}
+          <div ref={observerRef} style={{ height: '20px' }} />
+
+          {/* No more images message */}
+          {!hasMore && photos.length > 0 && (
+            <Typography sx={{ textAlign: 'center', p: 2, color: 'text.secondary' }}>
+              Žádné další obrázky k načtení.
+            </Typography>
+          )}
 
           <Dialog
             open={!!selectedPhoto}

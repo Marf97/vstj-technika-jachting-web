@@ -1,8 +1,23 @@
 // Graph API utilities - now using PHP proxy instead of direct calls
 
 // Fetch images from PHP proxy
-export async function fetchImagesFromProxy(proxyUrl: string) {
-  const response = await fetch(proxyUrl);
+export async function fetchImagesFromProxy(proxyUrl: string, limit?: number, offset?: number) {
+  let url = proxyUrl;
+  const params = new URLSearchParams();
+
+  if (limit !== undefined) {
+    params.set('top', limit.toString());
+  }
+  if (offset !== undefined) {
+    params.set('skip', offset.toString());
+  }
+
+  const paramString = params.toString();
+  if (paramString) {
+    url += (url.includes('?') ? '&' : '?') + paramString;
+  }
+
+  const response = await fetch(url);
   if (!response.ok) {
     const error = await response.text();
     throw new Error(`Proxy error ${response.status}: ${error}`);
@@ -11,7 +26,11 @@ export async function fetchImagesFromProxy(proxyUrl: string) {
   if (!data.success) {
     throw new Error(`Proxy returned error: ${data.error}`);
   }
-  return data.images as any[];
+  return {
+    images: data.images as any[],
+    total: data.total as number,
+    hasMore: data.hasMore as boolean
+  };
 }
 
 // URL pro náhled (thumbnail) – pokud není, fallback na content URL

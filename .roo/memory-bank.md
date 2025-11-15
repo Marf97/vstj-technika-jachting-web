@@ -111,6 +111,7 @@ Environment:
 - `npm run build`: Build for production
 - `npm run lint`: Run ESLint
 - `npm run preview`: Preview production build
+- `docker-compose restart`: Restart PHP proxy container after backend changes (required when modifying PHP files)
 
 ## Code Patterns & Conventions
 - **Components**: Functional components with hooks, reusable components (NavButton), modal dialogs for image viewing
@@ -152,6 +153,16 @@ Environment:
 - **CSS Override Fix**: Used `!important` declarations to ensure MUI ImageList respects responsive breakpoints
 - **Consistent Aspect Ratios**: Maintained 4:3 aspect ratios across all screen sizes
 - **Improved Mobile Experience**: Better thumbnail sizing and spacing on smaller screens
+
+**Gallery Infinite Scrolling Implementation (2025-11-15):**
+- **Smart Loading Strategy**: Initial load of 20 thumbnails, then 10 more on scroll-to-bottom
+- **IntersectionObserver API**: Efficient scroll detection without performance impact
+- **Server-Side Pagination**: PHP proxy supports `top`/`skip` parameters with proper offset tracking
+- **Newest-First Sorting**: Images sorted by creation date descending (newest images first)
+- **Loading States**: Circular progress indicator during incremental loads
+- **End-of-Content Message**: Czech "Žádné další obrázky k načtení" when all images loaded
+- **Duplicate Prevention**: Proper offset management prevents loading the same images repeatedly
+- **Backend Caching**: Server-side image caching with 5-minute TTL for optimal performance
 
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
@@ -195,6 +206,7 @@ Environment:
 *Recent PHP Proxy Implementation: 2025-11-13*
 *Recent Performance Optimization: 2025-11-15*
 *Recent Responsive Layout Update: 2025-11-15*
+*Recent Infinite Scrolling Gallery: 2025-11-15*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management
