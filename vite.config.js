@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
@@ -12,7 +11,7 @@ export default defineConfig({
       generateBundle() {
         // Only run in production build
         if (true) { // Always include PHP files in build for now
-          const phpFiles = ['php_proxy.php', 'php_get_image.php']
+          const phpFiles = ['php/endpoints/news.php', 'php/endpoints/gallery.php', 'php/modules/News.php', 'php/modules/Gallery.php', 'php/modules/Router.php', 'php/core/Config.php', 'php/core/Auth.php', 'php/core/GraphAPI.php']
           const envFile = '.env.php'
 
           // Read environment variables

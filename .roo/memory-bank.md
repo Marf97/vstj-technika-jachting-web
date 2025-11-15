@@ -99,12 +99,13 @@ Environment:
 - **Navigation**: Commented-out sections for "Novinky", "Naše lodě", "Přihláška do oddílu"
 - **Routing**: No routing system (single-page app)
 - **Content Sections**: Some sections incomplete or not implemented
-- **Gallery UX**: Full-resolution image loading with loading states, click-outside-to-close functionality, responsive fullscreen modal dialogs
+- **Gallery UX**: Full-resolution image loading with loading states, click-outside-to-close functionality, responsive fullscreen modal dialogs, robust error handling for failed image loads
 - **Authentication**: UX could be enhanced (login/logout buttons, better error messages)
 - **Internationalization**: No i18n setup (currently Czech-only)
 - **Header Background**: Image positioning can be customized via `backgroundPosition` CSS property
-- **Performance**: Image loading optimization for gallery
+- **Performance**: Image loading optimization for gallery, cURL redirect handling for Graph API
 - **Responsive Design**: Header and gallery fully responsive with mobile-optimized layouts
+- **Infrastructure**: Robust PHP proxy with redirect handling, comprehensive error diagnostics for Graph API integration
 
 ## Development Commands
 - `npm run dev`: Start development server
@@ -183,6 +184,16 @@ Environment:
 - **Bug Fixes**: Prevents unnecessary reloading when re-selecting the same year option
 - **Responsive Design**: Year headers and controls work across all screen sizes (mobile, tablet, desktop)
 
+**Gallery Image Loading Fix (2025-11-15):**
+- **Root Cause**: PHP cURL requests to Microsoft Graph API /content endpoint were not following redirects, causing frontend to receive 302 redirects instead of image bytes
+- **Microsoft Graph Behavior**: Graph API intentionally returns 302 redirects to pre-authenticated SharePoint/OneDrive download URLs for security and routing optimization
+- **Fix Implementation**: Enhanced cURL configuration with redirect following (CURLOPT_FOLLOWLOCATION, CURLOPT_MAXREDIRS), robust error handling, and comprehensive logging
+- **Robust cURL Options**: Added CURLOPT_RETURNTRANSFER, CURLOPT_HEADER, and detailed error diagnostics for troubleshooting authentication and permission issues
+- **Alternative Implementation**: Added commented code path for direct @microsoft.graph.downloadUrl usage, eliminating server-side proxying if needed
+- **Enhanced Diagnostics**: ERROR-level logging for failed requests with HTTP codes, redirect counts, final URLs, and special detection for authentication redirects to login.microsoftonline.com
+- **Post-Mortem Documentation**: Comprehensive internal documentation added to Gallery.php for future maintenance and similar issues
+- **Prevention Strategy**: Clear guidance on handling Graph API redirects, with fallback options for different use cases
+
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
 - **PDF-Driven Design**: All colors and fonts extracted from VSTJ_navrh_pokus.pdf brand guidelines
@@ -227,6 +238,7 @@ Environment:
 *Recent Responsive Layout Update: 2025-11-15*
 *Recent Infinite Scrolling Gallery: 2025-11-15*
 *Recent Year-Based Gallery Browsing: 2025-11-15*
+*Recent Gallery Image Loading Fix: 2025-11-15*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management

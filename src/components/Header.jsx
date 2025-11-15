@@ -82,9 +82,10 @@ export default function Header({ onNavClick }) {
           gap: { xs: 0.5, sm: 0 },
           alignItems: { xs: 'flex-end', sm: 'center' }
         }}>
-          <NavButton onClick={() => handleNavClick('O nás')}>O nás</NavButton>
+          <NavButton onClick={() => window.location.href = '/'}>O nás</NavButton>
           <NavButton onClick={() => handleNavClick('Kontakt')}>Kontakt</NavButton>
           <NavButton onClick={() => handleNavClick('Galerie')}>Galerie</NavButton>
+          <NavButton onClick={() => window.location.href = '/novinky'}>Novinky</NavButton>
         </Box>
       </Toolbar>
     </AppBar>

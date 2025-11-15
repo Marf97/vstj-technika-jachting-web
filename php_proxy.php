@@ -35,6 +35,7 @@ if (!$clientId || !$tenantId || !$clientSecret) {
 $siteHost = 'technikapraha.sharepoint.com';
 $sitePath = 'sites/jachting';
 $folderPath = 'verejne/fotky-verejne';
+$newsFolderPath = 'verejne/novinky-verejne';
 
 // Secure token encryption/decryption functions
 function encryptToken($data, $key) {
@@ -204,9 +205,23 @@ try {
     $year = isset($_GET['year']) ? trim($_GET['year']) : null;
     $listYears = isset($_GET['list_years']) && $_GET['list_years'] === '1';
 
+    // News-specific parameters
+    $article = isset($_GET['article']) ? trim($_GET['article']) : null;
+    $listArticles = isset($_GET['list_articles']) && $_GET['list_articles'] === '1';
+    $newsMode = $article !== null || $listArticles || isset($_GET['news']);
+
+    // Handle news mode or gallery mode
+    if ($newsMode) {
+        // Use news folder path for news operations
+        $currentFolderPath = $newsFolderPath;
+    } else {
+        // Use gallery folder path for gallery operations
+        $currentFolderPath = $folderPath;
+    }
+
     // Handle year folder enumeration if requested
     if ($listYears) {
-        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$folderPath}:/children?\$select=id,name,folder";
+        $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$currentFolderPath}:/children?\$select=id,name,folder";
         $folderData = callGraphAPI($folderUrl, $accessToken);
 
         // Filter for year folders (numeric names like 2025, 2024, etc.)
@@ -226,11 +241,166 @@ try {
         exit;
     }
 
-    // Check cache for gallery data (5-minute cache)
-    $galleryCacheFile = sys_get_temp_dir() . '/gallery_cache_' . md5($siteId . $folderPath) . '.json';
-    $cacheValid = false;
+    // Handle article listing if requested
+    if ($listArticles) {
+        $articles = [];
 
-    if (file_exists($galleryCacheFile)) {
+        if ($year) {
+            // List articles for specific year
+            $yearFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$newsFolderPath}/{$year}:/children?\$select=id,name,folder,file,createdDateTime,lastModifiedDateTime";
+            try {
+                $yearFolderData = callGraphAPI($yearFolderUrl, $accessToken);
+
+                // Filter for folders (each article is a folder containing markdown and images)
+                $articleFolders = array_filter($yearFolderData['value'], function($item) {
+                    return isset($item['folder']);
+                });
+
+                // Sort articles by creation date descending (newest first)
+                usort($articleFolders, function($a, $b) {
+                    $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
+                    $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
+                    return $bTime - $aTime;
+                });
+
+                $articles = array_map(function($item) use ($year) {
+                    return [
+                        'id' => $item['id'],
+                        'title' => $item['name'],
+                        'year' => $year,
+                        'createdDateTime' => $item['createdDateTime'],
+                        'lastModifiedDateTime' => $item['lastModifiedDateTime']
+                    ];
+                }, $articleFolders);
+            } catch (Exception $e) {
+                // Year folder might not exist or be accessible
+                $articles = [];
+            }
+        } else {
+            // List all articles across all years
+            $newsFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$newsFolderPath}:/children?\$select=id,name,folder";
+            $newsFolderData = callGraphAPI($newsFolderUrl, $accessToken);
+
+            // Get year folders
+            $yearFolders = array_filter($newsFolderData['value'], function($item) {
+                return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
+            });
+
+            // Sort years descending
+            usort($yearFolders, function($a, $b) {
+                return intval($b['name']) - intval($a['name']);
+            });
+
+            // Collect articles from all years
+            foreach ($yearFolders as $yearFolder) {
+                $yearName = $yearFolder['name'];
+                $yearFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$newsFolderPath}/{$yearName}:/children?\$select=id,name,folder,createdDateTime,lastModifiedDateTime";
+
+                try {
+                    $yearFolderData = callGraphAPI($yearFolderUrl, $accessToken);
+
+                    $articleFolders = array_filter($yearFolderData['value'], function($item) {
+                        return isset($item['folder']);
+                    });
+
+                    // Sort articles within year
+                    usort($articleFolders, function($a, $b) {
+                        $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
+                        $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
+                        return $bTime - $aTime;
+                    });
+
+                    $yearArticles = array_map(function($item) use ($yearName) {
+                        return [
+                            'id' => $item['id'],
+                            'title' => $item['name'],
+                            'year' => $yearName,
+                            'createdDateTime' => $item['createdDateTime'],
+                            'lastModifiedDateTime' => $item['lastModifiedDateTime']
+                        ];
+                    }, $articleFolders);
+
+                    $articles = array_merge($articles, $yearArticles);
+                } catch (Exception $e) {
+                    // Skip inaccessible year folders
+                    continue;
+                }
+            }
+        }
+
+        echo json_encode([
+            'success' => true,
+            'articles' => $articles
+        ]);
+        exit;
+    }
+
+    // Handle individual article fetching
+    if ($article) {
+        $articleData = null;
+
+        if ($year) {
+            // Fetch specific article from specific year
+            $articleFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$newsFolderPath}/{$year}/{$article}:/children?\$select=id,name,file,mimeType,size,createdDateTime,lastModifiedDateTime,@microsoft.graph.downloadUrl";
+            try {
+                $articleFolderData = callGraphAPI($articleFolderUrl, $accessToken);
+
+                $markdownFile = null;
+                $images = [];
+
+                foreach ($articleFolderData['value'] as $item) {
+                    if (isset($item['file'])) {
+                        if (strpos($item['mimeType'], 'text/markdown') !== false || pathinfo($item['name'], PATHINFO_EXTENSION) === 'md') {
+                            $markdownFile = $item;
+                        } elseif (strpos($item['mimeType'], 'image/') === 0) {
+                            $images[] = $item;
+                        }
+                    }
+                }
+
+                if ($markdownFile) {
+                    // Fetch markdown content
+                    $markdownUrl = $markdownFile['@microsoft.graph.downloadUrl'];
+                    $markdownContent = file_get_contents($markdownUrl);
+
+                    if ($markdownContent !== false) {
+                        $articleData = [
+                            'id' => $markdownFile['id'],
+                            'title' => $article,
+                            'year' => $year,
+                            'content' => $markdownContent,
+                            'createdDateTime' => $markdownFile['createdDateTime'],
+                            'lastModifiedDateTime' => $markdownFile['lastModifiedDateTime'],
+                            'images' => $images
+                        ];
+                    }
+                }
+            } catch (Exception $e) {
+                // Article not found
+            }
+        }
+
+        if ($articleData) {
+            echo json_encode([
+                'success' => true,
+                'article' => $articleData
+            ]);
+        } else {
+            echo json_encode([
+                'success' => false,
+                'error' => 'Article not found'
+            ]);
+        }
+        exit;
+    }
+
+    // Check cache for gallery data (5-minute cache) - only for gallery mode
+    if (!$newsMode) {
+        $galleryCacheFile = sys_get_temp_dir() . '/gallery_cache_' . md5($siteId . $folderPath) . '.json';
+        $cacheValid = false;
+    }
+
+    if (!$newsMode && file_exists($galleryCacheFile)) {
         $cacheContent = @file_get_contents($galleryCacheFile);
         if ($cacheContent !== false) {
             $cache = json_decode($cacheContent, true);
@@ -242,7 +412,7 @@ try {
     }
 
     // Handle year-specific fetching or default browsing
-    if ($year) {
+    if ($year && !$newsMode) {
         // Year-specific mode: fetch from specific year folder
         $yearFolderPath = $folderPath . '/' . $year;
         $encodedYearFolderPath = urlencode($yearFolderPath);
@@ -265,7 +435,7 @@ try {
         // Start with current year, then fall back to previous years when exhausted
 
         // First, get available year folders to determine browsing order
-        $yearFoldersUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$folderPath}:/children?\$select=id,name,folder";
+        $yearFoldersUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$currentFolderPath}:/children?\$select=id,name,folder";
         $yearFoldersData = callGraphAPI($yearFoldersUrl, $accessToken);
 
         // Filter and sort year folders (newest first)
@@ -280,7 +450,7 @@ try {
         $allImages = [];
         foreach ($yearFolders as $yearFolder) {
             $yearName = $yearFolder['name'];
-            $yearFolderPath = $folderPath . '/' . $yearName;
+            $yearFolderPath = $currentFolderPath . '/' . $yearName;
             $encodedYearFolderPath = urlencode($yearFolderPath);
             $yearFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedYearFolderPath}:/children?\$select=id,name,createdDateTime,lastModifiedDateTime,webUrl,file,folder&\$expand=thumbnails";
 
@@ -313,18 +483,20 @@ try {
         $cacheValid = false; // Don't cache dynamic year-based browsing
     }
 
-    // Apply pagination to the cached/sorted results
-    $folderData = ['value' => array_slice($allImagesCache, $skip, $top ?: null)];
+    // Apply pagination to the cached/sorted results only for gallery mode
+    if (!$newsMode) {
+        $folderData = ['value' => array_slice($allImagesCache, $skip, $top ?: null)];
 
-    // Filter for images only (exclude folders)
-    $images = array_filter($folderData['value'], function($item) {
-        return isset($item['file']) && isset($item['file']['mimeType']) &&
-               strpos($item['file']['mimeType'], 'image/') === 0;
-    });
+        // Filter for images only (exclude folders)
+        $images = array_filter($folderData['value'], function($item) {
+            return isset($item['file']) && isset($item['file']['mimeType']) &&
+                   strpos($item['file']['mimeType'], 'image/') === 0;
+        });
 
-    // Handle pagination response
-    $totalImages = count($images);
-    $paginatedImages = $images;
+        // Handle pagination response
+        $totalImages = count($images);
+        $paginatedImages = $images;
+    }
 
     $totalTime = microtime(true) - $startTime;
     $filterTime = microtime(true) - $startTime - $tokenTime - $siteTime;

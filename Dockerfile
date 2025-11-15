@@ -1,8 +1,7 @@
 FROM php:8.1-apache
 
 # Copy PHP files to web root
-COPY php_proxy.php /var/www/html/
-COPY php_get_image.php /var/www/html/
+COPY php/ /var/www/html/
 
 # Enable Apache mod_rewrite (if needed)
 RUN a2enmod rewrite

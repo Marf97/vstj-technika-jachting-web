@@ -1,0 +1,27 @@
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>192</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>323</b><br />
+<br />
+<b>Deprecated</b>:  strpos(): Passing null to parameter #1 ($haystack) of type string is deprecated in <b>/var/www/html/php/modules/News.php</b> on line <b>323</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>192</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>323</b><br />
+<br />
+<b>Deprecated</b>:  strpos(): Passing null to parameter #1 ($haystack) of type string is deprecated in <b>/var/www/html/php/modules/News.php</b> on line <b>323</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>328</b><br />
+<br />
+<b>Deprecated</b>:  strpos(): Passing null to parameter #1 ($haystack) of type string is deprecated in <b>/var/www/html/php/modules/News.php</b> on line <b>328</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>192</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>323</b><br />
+<br />
+<b>Deprecated</b>:  strpos(): Passing null to parameter #1 ($haystack) of type string is deprecated in <b>/var/www/html/php/modules/News.php</b> on line <b>323</b><br />
+<br />
+<b>Warning</b>:  Undefined array key "mimeType" in <b>/var/www/html/php/modules/News.php</b> on line <b>328</b><br />
+<br />
+<b>Deprecated</b>:  strpos(): Passing null to parameter #1 ($haystack) of type string is deprecated in <b>/var/www/html/php/modules/News.php</b> on line <b>328</b><br />
+{"success":true,"id":"01X3SXDS7TSZVBCVT44JBIFYSTST3UG5PF","title":"schuze-klubu","year":"2025","content":"# Prvn\u00ed testovac\u00ed \u010dl\u00e1nek pro rok 2025\r\n\r\n**Datum:** 15. listopad 2025\r\n\r\n![\u00davodn\u00ed obr\u00e1zek](uvodni-foto.jpg)\r\n\r\n## \u00davod\r\n\r\nV\u00edtejte u prvn\u00edho testovac\u00edho \u010dl\u00e1nku na na\u0161ich novink\u00e1ch! Tento \u010dl\u00e1nek slou\u017e\u00ed k ov\u011b\u0159en\u00ed funk\u010dnosti nov\u00e9ho syst\u00e9mu pro spr\u00e1vu novinek V\u0160TJ Technika Jachting.\r\n\r\n## O \u010dem bude \u010dl\u00e1nek\r\n\r\nV tomto \u010dl\u00e1nku se pod\u00edv\u00e1me na:\r\n\r\n- Jak funguje nov\u00fd syst\u00e9m novinek\r\n- Jak se vytv\u00e1\u0159\u00ed \u010dl\u00e1nky v Markdown form\u00e1tu\r\n- Jak se vkl\u00e1daj\u00ed obr\u00e1zky do \u010dl\u00e1nk\u016f\r\n- Jak vypad\u00e1 v\u00fdsledn\u00e9 zobrazen\u00ed na webu\r\n\r\n## Markdown form\u00e1tov\u00e1n\u00ed\r\n\r\nMarkdown umo\u017e\u0148uje snadn\u00e9 form\u00e1tov\u00e1n\u00ed textu:\r\n\r\n- **Tu\u010dn\u00fd text** pro d\u016fraz\r\n- *Kurz\u00edva* pro jemn\u00e9 zv\u00fdrazn\u011bn\u00ed\r\n- `k\u00f3d` pro technick\u00e9 v\u00fdrazy\r\n\r\n### Seznamy\r\n\r\n\u010c\u00edslovan\u00e9 seznamy:\r\n1. Prvn\u00ed bod\r\n2. Druh\u00fd bod\r\n3. T\u0159et\u00ed bod\r\n\r\nNe\u010d\u00edslovan\u00e9 seznamy:\r\n- Bod jedna\r\n- Bod dva\r\n- Bod t\u0159i\r\n\r\n## Obr\u00e1zky v \u010dl\u00e1nc\u00edch\r\n\r\nObr\u00e1zky se vkl\u00e1daj\u00ed pomoc\u00ed syntaxe:\r\n\r\n```\r\n![Alternativn\u00ed text](n\u00e1zev-souboru.jpg)\r\n```\r\n\r\nNap\u0159\u00edklad:\r\n\r\n![Dal\u0161\u00ed testovac\u00ed obr\u00e1zek](test-foto.jpg)\r\n\r\n## Z\u00e1v\u011br\r\n\r\nTento testovac\u00ed \u010dl\u00e1nek ukazuje, \u017ee syst\u00e9m novinek funguje spr\u00e1vn\u011b. V bl\u00edzk\u00e9 budoucnosti zde najdete skute\u010dn\u00e9 novinky z na\u0161eho jachta\u0159sk\u00e9ho odd\u00edlu!\r\n\r\n*Redakce V\u0160TJ Technika Jachting*","createdDateTime":"2025-11-15T19:15:19Z","lastModifiedDateTime":"2025-11-15T19:15:19Z","images":[]}

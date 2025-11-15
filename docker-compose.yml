@@ -4,8 +4,9 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./php_proxy.php:/var/www/html/php_proxy.php
-      - ./php_get_image.php:/var/www/html/php_get_image.php
+      - ./php/core:/var/www/html/php/core
+      - ./php/modules:/var/www/html/php/modules
+      - ./php/endpoints:/var/www/html/php/endpoints
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
     env_file:

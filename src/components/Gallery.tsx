@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { fetchImagesFromProxy, fetchAvailableYears, pickThumbnailUrl, getImageContentUrl } from "../lib/graph";
+import { fetchImagesFromProxy, fetchGalleryYears, pickThumbnailUrl, getImageContentUrl } from "../lib/graph";
 import ImageList from '@mui/material/ImageList';
 import ImageListItem from '@mui/material/ImageListItem';
 import Typography from '@mui/material/Typography';
@@ -34,7 +34,7 @@ export default function Gallery() {
   const [yearMenuAnchor, setYearMenuAnchor] = useState<null | HTMLElement>(null);
   const [yearsLoading, setYearsLoading] = useState(false);
 
-  const PROXY_URL = '/api/php_proxy.php'; // Vite proxy will handle this
+  const PROXY_URL = '/api/php/endpoints/gallery.php'; // Vite proxy will handle this
   const INITIAL_LOAD = 20;
   const LOAD_MORE = 10;
 
@@ -117,7 +117,10 @@ export default function Gallery() {
     setFullImageUrl(null); // clear previous image
     try {
       // For full images, fetch directly from proxy (extend PHP proxy to handle individual image requests)
-      const imageUrl = getImageContentUrl(PROXY_URL, item.id);
+      const imageUrl = `${getImageContentUrl(PROXY_URL, item.id)}&t=${Date.now()}`; // Add timestamp to prevent caching
+      console.log('DEBUG: Generated image URL:', imageUrl);
+      console.log('DEBUG: Item ID:', item.id);
+      console.log('DEBUG: Item object:', item);
       setFullImageUrl(imageUrl);
     } catch (e) {
       console.error('Failed to load full image:', e);
@@ -163,7 +166,7 @@ export default function Gallery() {
 
     try {
       setYearsLoading(true);
-      const years = await fetchAvailableYears(PROXY_URL);
+      const years = await fetchGalleryYears(PROXY_URL);
       setAvailableYears(years);
     } catch (e: any) {
       console.error('Failed to load available years:', e);
