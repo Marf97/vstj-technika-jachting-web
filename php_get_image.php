@@ -150,17 +150,24 @@ function getAccessToken($clientId, $tenantId, $clientSecret) {
     return getCachedAccessToken($clientId, $tenantId, $clientSecret);
 }
 
-// Fetch image content from SharePoint
-function fetchImageContent($itemId, $accessToken) {
-    // For app-only access, we need to use the site-specific drive endpoint
-    // Since we don't have site context in this function, we'll use the general drive endpoint
-    $contentUrl = "https://graph.microsoft.com/v1.0/drives/{drive-id}/items/{$itemId}/content";
-
-    // Actually, let's use the sites endpoint with a known site
+// Cache site ID to avoid repeated lookups
+function getCachedSiteId($accessToken) {
     $siteHost = 'technikapraha.sharepoint.com';
     $sitePath = 'sites/jachting';
+    $siteCacheFile = sys_get_temp_dir() . '/site_id_cache_' . md5($siteHost . $sitePath) . '.json';
 
-    // First get site and drive info, then get content
+    // Check for valid cached site ID (cache for 24 hours)
+    if (file_exists($siteCacheFile)) {
+        $cacheContent = @file_get_contents($siteCacheFile);
+        if ($cacheContent !== false) {
+            $cache = json_decode($cacheContent, true);
+            if ($cache && isset($cache['expires']) && time() < $cache['expires']) {
+                return $cache['siteId'];
+            }
+        }
+    }
+
+    // Get fresh site ID
     $siteUrl = "https://graph.microsoft.com/v1.0/sites/{$siteHost}:/{$sitePath}";
     $siteContext = stream_context_create([
         'http' => [
@@ -177,8 +184,39 @@ function fetchImageContent($itemId, $accessToken) {
     $siteData = json_decode($siteResponse, true);
     $siteId = $siteData['id'];
 
+    // Cache site ID for 24 hours
+    $cacheData = json_encode([
+        'siteId' => $siteId,
+        'expires' => time() + 86400 // 24 hours
+    ]);
+    @file_put_contents($siteCacheFile, $cacheData);
+    @chmod($siteCacheFile, 0600);
+
+    return $siteId;
+}
+
+// Fetch image content from SharePoint with caching
+function fetchImageContent($itemId, $accessToken) {
+    $siteId = getCachedSiteId($accessToken);
     $contentUrl = "https://graph.microsoft.com/v1.0/sites/" . urlencode($siteId) . "/drive/items/{$itemId}/content";
 
+    // Check for cached image (cache for 1 hour)
+    $imageCacheFile = sys_get_temp_dir() . '/image_cache_' . md5($itemId) . '.bin';
+    if (file_exists($imageCacheFile)) {
+        $cacheContent = @file_get_contents($imageCacheFile);
+        if ($cacheContent !== false) {
+            // Check cache metadata file for expiration
+            $metaFile = $imageCacheFile . '.meta';
+            if (file_exists($metaFile)) {
+                $meta = json_decode(@file_get_contents($metaFile), true);
+                if ($meta && isset($meta['expires']) && time() < $meta['expires']) {
+                    return $cacheContent;
+                }
+            }
+        }
+    }
+
+    // Fetch fresh image content
     $context = stream_context_create([
         'http' => [
             'method' => 'GET',
@@ -192,19 +230,43 @@ function fetchImageContent($itemId, $accessToken) {
         throw new Exception('Failed to fetch image content');
     }
 
+    // Cache the image for 1 hour
+    @file_put_contents($imageCacheFile, $response);
+    @chmod($imageCacheFile, 0600);
+
+    // Cache metadata
+    $metaData = json_encode([
+        'itemId' => $itemId,
+        'expires' => time() + 3600 // 1 hour
+    ]);
+    @file_put_contents($imageCacheFile . '.meta', $metaData);
+    @chmod($imageCacheFile . '.meta', 0600);
+
     return $response;
 }
 
 try {
+    $startTime = microtime(true);
+
     // Get access token
     $accessToken = getAccessToken($clientId, $tenantId, $clientSecret);
+    $tokenTime = microtime(true) - $startTime;
 
     // Fetch image content
     $imageData = fetchImageContent($itemId, $accessToken);
+    $fetchTime = microtime(true) - $startTime - $tokenTime;
+
+    // Log performance metrics
+    error_log(sprintf(
+        'Image fetch performance - ItemID: %s, Token time: %.3fs, Fetch time: %.3fs, Total: %.3fs',
+        $itemId, $tokenTime, $fetchTime, microtime(true) - $startTime
+    ));
 
     // Set appropriate headers for image response
     header('Content-Type: image/jpeg');
     header('Cache-Control: private, max-age=3600'); // Cache for 1 hour
+    header('X-Performance-Token-Time: ' . number_format($tokenTime, 3));
+    header('X-Performance-Fetch-Time: ' . number_format($fetchTime, 3));
 
     // Output image data
     echo $imageData;

@@ -160,13 +160,43 @@ function callGraphAPI($url, $accessToken) {
 
 // Main logic
 try {
+    $startTime = microtime(true);
+
     // Get access token
     $accessToken = getAccessToken($clientId, $tenantId, $clientSecret);
+    $tokenTime = microtime(true) - $startTime;
 
-    // Get site ID
-    $siteUrl = "https://graph.microsoft.com/v1.0/sites/{$siteHost}:/{$sitePath}";
-    $siteData = callGraphAPI($siteUrl, $accessToken);
-    $siteId = $siteData['id'];
+    // Get site ID (reuse cached site ID logic from php_get_image.php)
+    $siteCacheFile = sys_get_temp_dir() . '/site_id_cache_' . md5($siteHost . $sitePath) . '.json';
+    $siteId = null;
+
+    // Check for valid cached site ID (cache for 24 hours)
+    if (file_exists($siteCacheFile)) {
+        $cacheContent = @file_get_contents($siteCacheFile);
+        if ($cacheContent !== false) {
+            $cache = json_decode($cacheContent, true);
+            if ($cache && isset($cache['expires']) && time() < $cache['expires']) {
+                $siteId = $cache['siteId'];
+            }
+        }
+    }
+
+    if (!$siteId) {
+        // Get fresh site ID
+        $siteUrl = "https://graph.microsoft.com/v1.0/sites/{$siteHost}:/{$sitePath}";
+        $siteData = callGraphAPI($siteUrl, $accessToken);
+        $siteId = $siteData['id'];
+
+        // Cache site ID for 24 hours
+        $cacheData = json_encode([
+            'siteId' => $siteId,
+            'expires' => time() + 86400 // 24 hours
+        ]);
+        @file_put_contents($siteCacheFile, $cacheData);
+        @chmod($siteCacheFile, 0600);
+    }
+
+    $siteTime = microtime(true) - $startTime - $tokenTime;
 
     // Check cache for gallery data (5-minute cache)
     $galleryCacheFile = sys_get_temp_dir() . '/gallery_cache_' . md5($siteId . $folderPath) . '.json';
@@ -184,10 +214,14 @@ try {
     }
 
     if (!$cacheValid) {
+        $folderStartTime = microtime(true);
+
         // Get folder contents
         $encodedFolderPath = urlencode($folderPath);
         $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/{$encodedFolderPath}:/children?\$select=id,name,webUrl,file,folder&\$expand=thumbnails";
         $folderData = callGraphAPI($folderUrl, $accessToken);
+
+        $folderApiTime = microtime(true) - $folderStartTime;
 
         // Cache the result for 5 minutes
         $cacheData = json_encode([
@@ -204,10 +238,28 @@ try {
                strpos($item['file']['mimeType'], 'image/') === 0;
     });
 
+    $totalTime = microtime(true) - $startTime;
+    $filterTime = microtime(true) - $startTime - $tokenTime - $siteTime;
+
+    // Log performance metrics
+    error_log(sprintf(
+        'Gallery fetch performance - Token time: %.3fs, Site time: %.3fs, Folder time: %.3fs, Filter time: %.3fs, Total: %.3fs',
+        $tokenTime, $siteTime, (microtime(true) - $startTime - $tokenTime - $siteTime - $filterTime), $filterTime, $totalTime
+    ));
+
     // Return success response
     echo json_encode([
         'success' => true,
-        'images' => array_values($images)
+        'images' => array_values($images),
+        '_debug' => [
+            'performance' => [
+                'token_time' => round($tokenTime, 3),
+                'site_time' => round($siteTime, 3),
+                'total_time' => round($totalTime, 3)
+            ],
+            'image_count' => count($images),
+            'cached' => $cacheValid ? 'gallery' : 'none'
+        ]
     ]);
 
 } catch (Exception $e) {

@@ -82,14 +82,20 @@ export default function Gallery() {
         <Typography>Ve složce zatím nejsou žádné obrázky.</Typography>
       ) : (
         <>
-          <ImageList variant="standard" cols={4} gap={8} sx={{
-            gridTemplateColumns: {
-              xs: 'repeat(1, 1fr)',
-              sm: 'repeat(2, 1fr)',
-              md: 'repeat(3, 1fr)',
-              lg: 'repeat(4, 1fr)'
-            }
-          }}>
+          <ImageList
+            variant="standard"
+            cols={4}
+            gap={8}
+            sx={{
+              gridTemplateColumns: {
+                xs: 'repeat(2, 1fr) !important',
+                sm: 'repeat(3, 1fr) !important',
+                md: 'repeat(4, 1fr) !important',
+                lg: 'repeat(4, 1fr) !important',
+                xl: 'repeat(4, 1fr) !important'
+              }
+            }}
+          >
             {photos.map((p) => (
               <ImageListItem key={p.id} sx={{ aspectRatio: '4/3' }}>
                 <img

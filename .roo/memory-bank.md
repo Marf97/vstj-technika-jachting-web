@@ -140,6 +140,19 @@ Environment:
 - **Performance Caching**: AES-256 encrypted token caching (50min) and gallery data caching (5min)
 - **Security Standards**: OAuth 2.0 compliant token storage with encryption and access controls
 
+**Gallery Performance Optimization (2025-11-15):**
+- **Site ID Caching**: Implemented persistent site ID caching (24h) to eliminate repeated SharePoint site lookups
+- **Full-Resolution Image Caching**: Added binary image content caching (1h) to avoid redundant downloads
+- **Performance Monitoring**: Integrated detailed timing metrics and debug headers for optimization tracking
+- **Shared Site Cache**: Unified site ID caching across both PHP endpoints for consistent performance
+- **Enhanced Logging**: Comprehensive performance logging for token acquisition, API calls, and caching hits
+
+**Gallery Responsive Layout Update (2025-11-15):**
+- **Dynamic Column Count**: Implemented progressive responsive grid (2 mobile → 3 tablet → 4 desktop)
+- **CSS Override Fix**: Used `!important` declarations to ensure MUI ImageList respects responsive breakpoints
+- **Consistent Aspect Ratios**: Maintained 4:3 aspect ratios across all screen sizes
+- **Improved Mobile Experience**: Better thumbnail sizing and spacing on smaller screens
+
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
 - **PDF-Driven Design**: All colors and fonts extracted from VSTJ_navrh_pokus.pdf brand guidelines
@@ -176,10 +189,12 @@ Environment:
 
 ---
 
-*Last Updated: 2025-11-13*
+*Last Updated: 2025-11-15*
 *Recent Gallery Enhancement: 2025-11-12*
 *Recent Theme Implementation: 2025-11-12*
 *Recent PHP Proxy Implementation: 2025-11-13*
+*Recent Performance Optimization: 2025-11-15*
+*Recent Responsive Layout Update: 2025-11-15*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management
