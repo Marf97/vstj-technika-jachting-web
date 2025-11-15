@@ -71,7 +71,8 @@ function AppContent() {
               </>
             } />
             <Route path="/novinky" element={<News />} />
-            <Route path="/novinky/*" element={<News />} />
+            <Route path="/novinky/:year?" element={<News />} />
+            <Route path="/novinky/:year/:article" element={<News />} />
           </Routes>
         </Container>
         <Footer />

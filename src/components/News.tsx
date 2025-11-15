@@ -85,7 +85,7 @@ export default function News() {
   const [yearsLoading, setYearsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const PROXY_URL = '/api/php/endpoints/news.php';
+  const PROXY_URL = 'https://jachting.technika-praha.cz/php/endpoints/news.php';
 
   // Get URL parameters
   const urlYear = searchParams.get('year');

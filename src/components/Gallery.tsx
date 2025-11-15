@@ -34,7 +34,7 @@ export default function Gallery() {
   const [yearMenuAnchor, setYearMenuAnchor] = useState<null | HTMLElement>(null);
   const [yearsLoading, setYearsLoading] = useState(false);
 
-  const PROXY_URL = '/api/php/endpoints/gallery.php'; // Vite proxy will handle this
+  const PROXY_URL = 'https://jachting.technika-praha.cz/php/endpoints/gallery.php';
   const INITIAL_LOAD = 20;
   const LOAD_MORE = 10;
 
