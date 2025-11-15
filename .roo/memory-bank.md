@@ -194,6 +194,17 @@ Environment:
 - **Post-Mortem Documentation**: Comprehensive internal documentation added to Gallery.php for future maintenance and similar issues
 - **Prevention Strategy**: Clear guidance on handling Graph API redirects, with fallback options for different use cases
 
+**News Article Images Loading Fix (2025-11-15):**
+- **Scope**: Applied identical Graph API redirect fix to News module markdown content fetching
+- **Issue Identified**: News articles with embedded images failed to load due to same cURL redirect handling issue
+- **Implementation**: Updated News.php getArticle() method with identical cURL enhancements (CURLOPT_FOLLOWLOCATION, redirect diagnostics)
+- **Frontend Enhancement**: Created custom MarkdownImage React component for ReactMarkdown to resolve relative image references
+- **URL Resolution**: Implemented automatic mapping of markdown image references (e.g., `![alt](uvodni-foto.jpg)`) to article image IDs with proper proxy URLs
+- **Article Structure**: News articles stored as SharePoint folders containing markdown files and associated images
+- **Image Reference Handling**: Frontend now correctly resolves `filename.jpg` references to full proxy URLs via gallery endpoint routing
+- **Cross-Module Integration**: Gallery endpoint handles image serving for both gallery thumbnails and news article images
+- **Unicode Support**: Maintained proper UTF-8 encoding for Czech characters in article content and image filenames
+
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
 - **PDF-Driven Design**: All colors and fonts extracted from VSTJ_navrh_pokus.pdf brand guidelines
@@ -239,6 +250,7 @@ Environment:
 *Recent Infinite Scrolling Gallery: 2025-11-15*
 *Recent Year-Based Gallery Browsing: 2025-11-15*
 *Recent Gallery Image Loading Fix: 2025-11-15*
+*Recent News Article Images Loading Fix: 2025-11-15*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management
