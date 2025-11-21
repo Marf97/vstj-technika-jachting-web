@@ -58,12 +58,14 @@ class News {
                 });
 
                 $articles = array_map(function($item) use ($year) {
+                    $thumbnail = $this->getArticleThumbnailUrl($item['id']);
                     return [
                         'id' => $item['id'],
                         'title' => $item['name'],
                         'year' => $year,
                         'createdDateTime' => $item['createdDateTime'],
-                        'lastModifiedDateTime' => $item['lastModifiedDateTime']
+                        'lastModifiedDateTime' => $item['lastModifiedDateTime'],
+                        'thumbnail' => $thumbnail
                     ];
                 }, $articleFolders);
             } catch (Exception $e) {
@@ -107,12 +109,14 @@ class News {
                         });
 
                         $yearArticles = array_map(function($item) use ($yearName) {
+                            $thumbnail = $this->getArticleThumbnailUrl($item['id']);
                             return [
                                 'id' => $item['id'],
                                 'title' => $item['name'],
                                 'year' => $yearName,
                                 'createdDateTime' => $item['createdDateTime'],
-                                'lastModifiedDateTime' => $item['lastModifiedDateTime']
+                                'lastModifiedDateTime' => $item['lastModifiedDateTime'],
+                                'thumbnail' => $thumbnail
                             ];
                         }, $articleFolders);
 
@@ -129,6 +133,44 @@ class News {
         }
 
         return $articles;
+    }
+
+    /**
+     * Get thumbnail URL for a specific article
+     * Looks for thumbnail.jpg in the article folder
+     */
+    private function getArticleThumbnailUrl(string $articleFolderId): ?string {
+        $siteId = $this->graphAPI->getSiteId();
+
+        try {
+            // List contents of the article folder to find thumbnail.jpg
+            $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$articleFolderId}/children?\$select=id,name,file";
+            $folderData = $this->graphAPI->callAPI($folderUrl);
+
+            // Find thumbnail.jpg file
+            $thumbnailFile = null;
+            foreach ($folderData['value'] as $item) {
+                if (isset($item['file']) && strtolower($item['name']) === 'thumbnail.jpg') {
+                    $thumbnailFile = $item;
+                    break;
+                }
+            }
+
+            if (!$thumbnailFile) {
+                return null; // No thumbnail found
+            }
+
+            // Get the download URL for the thumbnail
+            $thumbnailId = $thumbnailFile['id'];
+            $metadataUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$thumbnailId}?\$select=@microsoft.graph.downloadUrl";
+            $metadata = $this->graphAPI->callAPI($metadataUrl);
+
+            return $metadata['@microsoft.graph.downloadUrl'] ?? null;
+
+        } catch (Exception $e) {
+            error_log("Failed to get thumbnail for article {$articleName} in {$year}: " . $e->getMessage());
+            return null;
+        }
     }
 
     public function getArticle(string $title, string $year): ?array {
@@ -175,11 +217,10 @@ class News {
                 return null;
             }
 
-            $actualTitle = $articleFolder['name'];
-            error_log("DEBUG: Using article folder: {$actualTitle}");
+            $articleFolderId = $articleFolder['id'];
 
             // Now fetch the contents of the correct article folder
-            $articleFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::NEWS_PATH . "/{$year}/{$actualTitle}:/children?\$select=id,name,file,mimeType,size,createdDateTime,lastModifiedDateTime,@microsoft.graph.downloadUrl";
+            $articleFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$articleFolderId}/children?\$select=id,name,file,mimeType,size,createdDateTime,lastModifiedDateTime,@microsoft.graph.downloadUrl";
             $articleFolderData = $this->graphAPI->callAPI($articleFolderUrl);
 
             error_log("DEBUG: Found " . count($articleFolderData['value']) . " items in article folder");
@@ -235,7 +276,7 @@ class News {
                         error_log("DEBUG: Successfully fetched markdown content (" . strlen($markdownContent) . " characters)");
                         return [
                             'id' => $markdownFile['id'],
-                            'title' => $actualTitle,
+                            'title' => $articleFolder['name'],
                             'year' => $year,
                             'content' => $markdownContent,
                             'createdDateTime' => $markdownFile['createdDateTime'],
@@ -260,13 +301,23 @@ class News {
                     error_log("DEBUG: Exception fetching markdown content: " . $e->getMessage());
                 }
             } else {
-                error_log("DEBUG: No markdown file found in article folder: {$actualTitle}");
+                error_log("DEBUG: No markdown file found in article folder: {$articleFolder['name']}");
             }
         } catch (Exception $e) {
             error_log("DEBUG: Exception in getArticle: " . $e->getMessage());
         }
 
         return null;
+    }
+
+    public function getArticleExcerpt(string $year, string $articleName): ?string {
+        $article = $this->getArticle($articleName, $year);
+
+        if (!$article || empty($article['content'])) {
+            return null;
+        }
+
+        return $this->createExcerptFromMarkdown($article['content']);
     }
 
     // Debug method to check if news folder exists
@@ -335,6 +386,33 @@ class News {
         return file_get_contents($url);
     }
 
-    // Create URL-safe slug from title
+    private function createExcerptFromMarkdown(string $markdown, int $maxLength = 220): string {
+        // odstranit obrázky ![alt](url)
+        $text = preg_replace('/!\[.*?\]\(.*?\)/', '', $markdown);
+
+        // odkazy [text](url) -> jen "text"
+        $text = preg_replace('/\[([^\]]+)\]\([^)]+\)/', '$1', $text);
+
+        // základní markdown znaky pryč
+        $text = preg_replace('/[#*_>`-]+/', ' ', $text);
+
+        // sjednotit whitespace
+        $text = trim(preg_replace('/\s+/', ' ', $text));
+
+        if (mb_strlen($text) <= $maxLength) {
+            return $text;
+        }
+
+        $short = mb_substr($text, 0, $maxLength);
+
+        // ustřihnout na poslední mezeře, ať to neřezne uprostřed slova
+        $lastSpace = mb_strrpos($short, ' ');
+        if ($lastSpace !== false) {
+            $short = mb_substr($short, 0, $lastSpace);
+        }
+
+        return $short . '…';
+    }
+
 }
 ?>

@@ -83,6 +83,8 @@ export async function fetchArticlesFromProxy(proxyUrl: string, year?: string | n
     year: string;
     createdDateTime: string;
     lastModifiedDateTime: string;
+    thumbnail?: string;
+    excerpt?: string;
   }>;
 }
 
@@ -128,6 +130,27 @@ export async function fetchNewsYears(proxyUrl: string): Promise<string[]> {
 // Legacy alias for backward compatibility
 export async function fetchAvailableYears(proxyUrl: string) {
   return fetchGalleryYears(proxyUrl);
+}
+
+export async function fetchArticleExcerptFromProxy(
+    proxyUrl: string,
+    articleTitle: string,
+    year: string
+  ): Promise<string | null> {
+    const url = new URL(proxyUrl);
+    url.searchParams.set('action', 'get_article_excerpt');
+    url.searchParams.set('title', articleTitle);
+    url.searchParams.set('year', year);
+
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      console.error('Failed to fetch excerpt', response.status, response.statusText);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.excerpt ?? null;
 }
 
 // URL pro náhled (thumbnail) – pokud není, fallback na content URL

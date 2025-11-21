@@ -70,6 +70,24 @@ try {
             }
             break;
 
+        case 'get_article_excerpt':
+            $year  = $_GET['year']  ?? null;
+            $title = $_GET['title'] ?? null;
+
+            if (!$year || !$title) {
+                http_response_code(400);
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Missing year or title'
+                ]);
+                break;
+            }
+            
+            $excerpt = $news->getArticleExcerpt($year, $title);
+
+            echo json_encode(['excerpt' => $excerpt]);
+            break;
+
         case 'debug_news':
             $debug = $news->debugNewsStructure();
             echo json_encode(['success' => true, 'debug' => $debug]);

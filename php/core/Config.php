@@ -12,7 +12,6 @@ class Config {
 
     // CORS allowed origins
     public const ALLOWED_ORIGINS = [
-        'http://localhost:5173',
         'https://jachting.technika-praha.cz'
     ];
 

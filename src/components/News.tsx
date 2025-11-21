@@ -25,13 +25,14 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { DateRange as DateRangeIcon } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { fetchArticlesFromProxy, fetchArticleFromProxy, fetchNewsYears, getArticleImageUrl } from '../lib/graph';
+import { fetchArticlesFromProxy, fetchArticleFromProxy, fetchNewsYears, getArticleImageUrl, fetchArticleExcerptFromProxy } from '../lib/graph';
 
 // Custom image component for ReactMarkdown
 const MarkdownImage = ({ src, alt, selectedArticle, PROXY_URL }: { src?: string; alt?: string; selectedArticle: ArticleDetail; PROXY_URL: string }) => {
   // Find the image by filename in the article's images array
   const findImageByFilename = (filename: string) => {
-    return selectedArticle.images?.find(img => img.name === filename);
+    const justName = filename.split('/').pop()?.toLowerCase();
+    return selectedArticle.images?.find(img => img.name.toLowerCase() === justName);
   };
 
   // If src is a filename (not a URL), try to resolve it to a proxy URL
@@ -63,6 +64,8 @@ type Article = {
   year: string;
   createdDateTime: string;
   lastModifiedDateTime: string;
+  thumbnail?: string;
+  excerpt?: string;
 };
 
 type ArticleDetail = {
@@ -84,9 +87,10 @@ export default function News() {
   const [loading, setLoading] = useState(true);
   const [articleLoading, setArticleLoading] = useState(false);
   const [yearsLoading, setYearsLoading] = useState(false);
+  const [excerptsLoading, setExcerptsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const PROXY_URL = 'https://jachting.technika-praha.cz/php/endpoints/news.php';
+  const PROXY_URL = 'http://localhost:8080/php/endpoints/news.php';
 
   // Get URL parameters
   const urlYear = searchParams.get('year');
@@ -123,19 +127,61 @@ export default function News() {
     }
   };
 
-  const loadArticles = async (year?: string | null) => {
-    try {
-      setLoading(true);
-      const fetchedArticles = await fetchArticlesFromProxy(PROXY_URL, year || undefined);
-      setArticles(fetchedArticles);
-      setError(null);
-    } catch (e: any) {
-      console.error('Failed to load articles:', e);
-      setError(e.message || 'Failed to load articles');
-    } finally {
-      setLoading(false);
-    }
-  };
+const loadArticles = async (year?: string | null) => {
+  setLoading(true);
+  try {
+    const fetchedArticles = await fetchArticlesFromProxy(PROXY_URL, year || undefined);
+    console.log('Fetched articles:', fetchedArticles);
+    console.log('First article thumbnail:', fetchedArticles[0]?.thumbnail);
+
+    setArticles(fetchedArticles);
+    setError(null);
+
+    // excerpt-y načítáme "fire-and-forget" – nečekáme na ně
+    void loadExcerptsForArticles(fetchedArticles);
+  } catch (e: any) {
+    console.error('Failed to load articles:', e);
+    setError(e.message || 'Failed to load articles');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const loadExcerptsForArticles = async (articlesToUpdate: Article[]) => {
+  try {
+    setExcerptsLoading(true);
+    const updates = await Promise.all(
+      articlesToUpdate.map(async (article) => {
+        try {
+          const excerpt = await fetchArticleExcerptFromProxy(
+            PROXY_URL,
+            article.title,
+            article.year
+          );
+
+          return { id: article.id, excerpt };
+        } catch (e) {
+          console.error('Failed to load excerpt for', article.title, e);
+          return { id: article.id, excerpt: undefined };
+        }
+      })
+    );
+
+    // doplníme excerpty do už existujícího seznamu článků
+    setArticles((prev) =>
+      prev.map((article) => {
+        const update = updates.find((u) => u.id === article.id);
+        return update && update.excerpt !== undefined
+          ? { ...article, excerpt: update.excerpt ?? undefined }
+          : article;
+      })
+    );
+  } catch (e) {
+    console.error('Failed to load excerpts:', e);
+  } finally {
+    setExcerptsLoading(false);
+  }
+};
 
   const loadArticleDetail = async (articleTitle: string, year: string) => {
     try {
@@ -221,17 +267,10 @@ export default function News() {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, gap: 2 }}>
-            <Chip
-              label={selectedArticle.year}
-              color="primary"
-              variant="outlined"
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <DateRangeIcon fontSize="small" color="action" />
-              <Typography variant="body2" color="text.secondary">
-                {formatDate(selectedArticle.createdDateTime)}
-              </Typography>
-            </Box>
+            <DateRangeIcon fontSize="small" color="action" />
+            <Typography variant="body2" color="text.secondary">
+              {formatDate(selectedArticle.createdDateTime)}
+            </Typography>
           </Box>
 
           <Divider sx={{ mb: 3 }} />
@@ -377,30 +416,93 @@ export default function News() {
                     }}
                     onClick={() => handleArticleClick(article)}
                   >
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Typography variant="h6" component="h2" gutterBottom sx={{ color: 'primary.main', fontWeight: 500 }}>
-                        {article.title}
-                      </Typography>
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                        <Chip
-                          label={article.year}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
+                  <CardContent
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5
+                    }}
+                  >
+                    {/* Horní řada: IMG + [TITLE / DATE] */}
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexDirection: 'row',
+                        gap: 2,
+                        alignItems: 'flex-start'
+                      }}
+                    >
+                      {article.thumbnail && (
+                        <Box
+                          component="img"
+                          src={article.thumbnail}
+                          alt={`${article.title} thumbnail`}
+                          sx={{
+                            width: 120,
+                            height: 120,
+                            objectFit: 'cover',
+                            borderRadius: 1,
+                            flexShrink: 0
+                          }}
                         />
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      )}
+
+                      {/* Sloupec s title + date */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'center',
+                          gap: 2,
+                          flexGrow: 1
+                        }}
+                      >
+                        <Typography
+                          variant="h6"
+                          component="h2"
+                          sx={{ color: 'primary.main', fontWeight: 500 }}
+                        >
+                          {article.title}
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <DateRangeIcon fontSize="small" color="action" />
                           <Typography variant="body2" color="text.secondary">
                             {formatDate(article.createdDateTime)}
                           </Typography>
                         </Box>
                       </Box>
+                    </Box>
 
-                      <Typography variant="body2" color="text.secondary">
-                        Kliknutím zobrazíte celý článek
-                      </Typography>
-                    </CardContent>
+                    {/* Spodní řada: EXCERPT přes celou šířku */}
+                      {article.excerpt ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            fontWeight: 300,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,         // kolik řádků max.
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {article.excerpt}
+                        </Typography>
+                      ) : excerptsLoading ? (
+                        <Box
+                          sx={{
+                            width: '100%',
+                            display: 'flex',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            py: 1
+                          }}
+                        >
+                          <CircularProgress size={16} />
+                        </Box>
+                      ) : null}
+                  </CardContent>
                   </Card>
                 </Grid>
               ))}
