@@ -9,8 +9,9 @@ export default defineConfig({
     {
       name: 'copy-php-with-env',
       generateBundle() {
-        // Only run in production build
-        if (true) { // Always include PHP files in build for now
+        // Include PHP files in build
+        /* eslint-disable-next-line no-constant-condition */
+        if (true) {
           const phpFiles = ['php/endpoints/news.php', 'php/endpoints/gallery.php', 'php/modules/News.php', 'php/modules/Gallery.php', 'php/modules/Router.php', 'php/core/Config.php', 'php/core/Auth.php', 'php/core/GraphAPI.php']
           const envFile = '.env.php'
 

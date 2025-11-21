@@ -12,7 +12,7 @@
 - **React**: 18.3.1 (downgraded from 19.2.0 for MUI compatibility)
 - **Vite**: 7.2.2 (build tool)
 - **MUI**: @mui/material 7.3.5, @mui/icons-material 7.3.5, @emotion/react/styled 11.14.1
-- **Markdown**: react-markdown for content rendering
+- **Markdown**: react-markdown with remark-gfm for content rendering (supports tables, GFM features)
 - **Azure MSAL**: @azure/msal-browser 4.26.1
 - **Theming**: Custom MUI theme with Outfit fonts and brand colors from PDF design
 - **Build Tools**: ESLint, TypeScript types
@@ -26,17 +26,20 @@ src/
 │   ├── VSTJ_navrh_pokus.pdf # Brand guidelines PDF with colors & fonts
 │   ├── onas.md          # About us content (Czech)
 │   ├── vedeni.md        # Leadership/board contact info (Czech)
+│   ├── boats.md         # Boat specifications and information (Czech)
 │   └── react.svg        # Unused React logo
 ├── components/          # React components
 │   ├── Header.jsx       # Redesigned header with hero background & logo
 │   ├── Footer.jsx       # Copyright footer with theme colors
 │   ├── Gallery.tsx      # Dynamic image gallery from SharePoint via PHP proxy
+│   ├── News.tsx         # News/articles component with markdown rendering
+│   ├── Boats.jsx        # Boats page component displaying boat specifications
 │   └── NavButton.jsx    # Reusable navigation button component
 ├── lib/                 # Utilities
 │   ├── auth.ts          # Azure AD authentication setup (client-side)
 │   └── graph.ts         # PHP proxy utilities (server-side Graph API calls)
 ├── theme.js             # Custom MUI theme with brand colors & Outfit fonts
-├── App.jsx              # Main app component with markdown content loading
+├── App.jsx              # Main app component with routing and markdown content loading (React Router)
 ├── App.css              # Component-specific styles
 ├── index.css            # Global styles with @font-face declarations
 └── main.jsx             # React app entry point
@@ -79,16 +82,19 @@ Environment:
 ## Current Application State
 **Layout:**
 - **Responsive Header**: PDF-inspired layout with responsive logo scaling (60px mobile, 80px tablet, 100px desktop), navigation right with vertical stacking on mobile
-- Content sections: "O nás", "Kontakt", "Galerie" with theme-styled markdown content
+- Content sections: "O nás", "Kontakt", "Galerie", "Novinky", "Naše lodě" with theme-styled markdown content
 - Footer with copyright using navy theme color
 - **Responsive Gallery**: MUI ImageList with standard layout, responsive columns (1 mobile, 2 tablet, 3 medium, 4 large), fixed 4:3 aspect ratios for consistent sizing
+- **Multi-page Navigation**: React Router implementation with dedicated routes for different content sections
 
 **Content Status:**
 - **Theme Implementation**: Full MUI theme with brand colors from PDF (#6396C1, #1F2646, #8F271E, #BF7D56, #6B6948) and Outfit fonts
-- **Markdown Content**: "O nás" (onas.md) and "Kontakt" (vedeni.md) sections with theme-aware typography (navy headings, Outfit fonts)
+- **Markdown Content**: "O nás" (onas.md), "Kontakt" (vedeni.md), "Naše lodě" (boats.md) sections with theme-aware typography (navy headings, Outfit fonts)
 - **Gallery Component**: Enhanced MUI ImageList masonry layout, fullscreen modal dialogs with theme-styled close buttons, full-resolution image loading on click, click-outside-to-close functionality
-- **Navigation**: Simplified to active sections (O nás, Kontakt, Galerie) with reusable NavButton component
-- **Content Management**: Markdown-based with proper theming via sx selectors
+- **News Component**: Full news/articles system with year-based browsing, SharePoint integration, and markdown rendering
+- **Boats Component**: Dedicated page for boat specifications with responsive 2-column layout, centered tables and thumbnails, full-screen modal viewing, unified thumbnail dimensions (250x200px), and proper source attribution formatting
+- **Navigation**: Expanded to active sections (O nás, Kontakt, Galerie, Novinky, Naše lodě) with reusable NavButton component
+- **Content Management**: Markdown-based with proper theming via sx selectors, table support via remark-gfm
 
 **Design System:**
 - **Colors**: 5 brand colors from VSTJ_navrh_pokus.pdf integrated into MUI palette
@@ -96,9 +102,9 @@ Environment:
 - **Components**: NavButton reusable component, theme-aware styling throughout
 
 **Known Issues/Areas for Development:**
-- **Navigation**: Commented-out sections for "Novinky", "Naše lodě", "Přihláška do oddílu"
-- **Routing**: No routing system (single-page app)
-- **Content Sections**: Some sections incomplete or not implemented
+- **Navigation**: Partially complete - "Naše lodě" and "Novinky" implemented, "Přihláška do oddílu" pending
+- **Routing**: Client-side routing implemented with React Router for multi-page sections
+- **Content Sections**: "Naše lodě" and "Novinky" fully implemented, other sections available for development
 - **Gallery UX**: Full-resolution image loading with loading states, click-outside-to-close functionality, responsive fullscreen modal dialogs, robust error handling for failed image loads
 - **Authentication**: UX could be enhanced (login/logout buttons, better error messages)
 - **Internationalization**: No i18n setup (currently Czech-only)
@@ -121,6 +127,8 @@ Environment:
 - **Authentication**: Dual approach - client-side MSAL for users, server-side app-only for API proxy
 - **API**: Async/await with error handling, PHP proxy for Graph API calls, environment-based configuration
 - **Types**: TypeScript for utilities, JSX for components
+- **Routing**: React Router v7 with programmatic navigation and route-based component loading
+- **Markdown Processing**: Enhanced with remark-gfm plugin for GitHub Flavored Markdown support (tables, strikethrough, etc.)
 - **UI Patterns**: Masonry image layouts, modal dialogs with theme-styled close buttons, PDF-inspired header layout
 - **Infrastructure**: Docker containers for development, environment variable secrets management
 - **Security**: Gitignored secrets, CORS validation, AES-256 encrypted token caching, proper error handling without information leakage
@@ -205,6 +213,26 @@ Environment:
 - **Cross-Module Integration**: Gallery endpoint handles image serving for both gallery thumbnails and news article images
 - **Unicode Support**: Maintained proper UTF-8 encoding for Czech characters in article content and image filenames
 
+**Boats Page Implementation (2025-11-17):**
+- **New Component**: Created `Boats.jsx` component for displaying boat specifications from `public/boats.md`
+- **Table Support**: Fixed markdown table rendering by adding `remark-gfm` plugin to ReactMarkdown components
+- **Navigation Enhancement**: Added "Naše lodě" button to header navigation after "Novinky"
+- **Routing Integration**: Implemented `/nase-lode` route in React Router configuration
+- **Content Updates**: Fixed boat specification tables in `boats.md` to use proper GitHub Flavored Markdown syntax
+- **Typography Fix**: Corrected Unicode superscript characters (m³, m²) instead of problematic `$$` syntax
+- **Consistency**: Applied same theme styling and markdown processing across all components
+
+**Boats Page UI Enhancement (2025-11-17):**
+- **Centered Tables**: Implemented custom ReactMarkdown components to center specification tables on screen
+- **Thumbnail Images**: Added thumbnail rendering for boat images with unified 250x200px dimensions using object-fit contain for complete image visibility
+- **Full-Screen Modal**: Created click-to-expand functionality opening full-size images in modal dialogs
+- **Modal Design**: Applied same modal pattern as Gallery component with black background, close button, and loading states
+- **User Experience**: Images now display as clickable thumbnails that expand to fill screen without scrolling
+- **Responsive Design**: Modal dialogs work across all screen sizes with proper image containment
+- **2-Column Layout**: Implemented responsive CSS Grid layout (single column mobile, two columns tablet+) for side-by-side boat comparison
+- **Content Organization**: Split boat content into separate markdown files (boats-chilli.md, boats-cuba.md) with centered H2 titles matching the main page H1 hierarchy
+- **Source Attribution**: Converted inline source links to proper bullet point lists for better readability
+
 **Brand Identity Integration (2025-11-12):**
 - **Complete Theme Overhaul**: Migrated from basic MUI to custom theme with VŠTJ brand colors and Outfit fonts
 - **PDF-Driven Design**: All colors and fonts extracted from VSTJ_navrh_pokus.pdf brand guidelines
@@ -215,7 +243,7 @@ Environment:
 
 ## Future Development Considerations
 - **Navigation Expansion**: Complete commented-out sections ("Novinky", "Naše lodě", "Přihláška do oddílu")
-- **Routing System**: Implement client-side routing for multi-page sections
+- **Routing System**: Implemented client-side routing with React Router for multi-page sections
 - **Content Management**: Expand markdown-based system, add more content sections
 - **Authentication UX**: Login/logout buttons, better error handling, user session management
 - **Mobile Optimization**: Responsive header layout with vertical navbar stacking, touch-friendly navigation, responsive gallery with consistent aspect ratios
@@ -241,7 +269,7 @@ Environment:
 
 ---
 
-*Last Updated: 2025-11-15*
+*Last Updated: 2025-11-17*
 *Recent Gallery Enhancement: 2025-11-12*
 *Recent Theme Implementation: 2025-11-12*
 *Recent PHP Proxy Implementation: 2025-11-13*
@@ -251,6 +279,9 @@ Environment:
 *Recent Year-Based Gallery Browsing: 2025-11-15*
 *Recent Gallery Image Loading Fix: 2025-11-15*
 *Recent News Article Images Loading Fix: 2025-11-15*
+*Recent Boats Page Implementation: 2025-11-17*
+*Recent Boats Page UI Enhancement: 2025-11-17*
+*Recent Boats Layout Refinement: 2025-11-17*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management

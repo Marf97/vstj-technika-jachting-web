@@ -118,9 +118,6 @@ export default function Gallery() {
     try {
       // For full images, fetch directly from proxy (extend PHP proxy to handle individual image requests)
       const imageUrl = `${getImageContentUrl(PROXY_URL, item.id)}&t=${Date.now()}`; // Add timestamp to prevent caching
-      console.log('DEBUG: Generated image URL:', imageUrl);
-      console.log('DEBUG: Item ID:', item.id);
-      console.log('DEBUG: Item object:', item);
       setFullImageUrl(imageUrl);
     } catch (e) {
       console.error('Failed to load full image:', e);

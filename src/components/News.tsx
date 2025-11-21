@@ -24,6 +24,7 @@ import {
 import { Close as CloseIcon } from '@mui/icons-material';
 import { DateRange as DateRangeIcon } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { fetchArticlesFromProxy, fetchArticleFromProxy, fetchNewsYears, getArticleImageUrl } from '../lib/graph';
 
 // Custom image component for ReactMarkdown
@@ -243,6 +244,7 @@ export default function News() {
             '& blockquote': { borderLeft: 4, borderColor: 'primary.main', pl: 2, py: 1, my: 2, bgcolor: 'grey.50' }
           }}>
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 img: ({ src, alt }) => (
                   <MarkdownImage

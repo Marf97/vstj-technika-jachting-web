@@ -1,5 +1,6 @@
 import React from 'react'
 import { useTheme } from '@mui/material/styles'
+import { useNavigate, useLocation } from 'react-router-dom'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
@@ -8,10 +9,16 @@ import NavButton from './NavButton'
 
 export default function Header({ onNavClick }) {
   const theme = useTheme()
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const handleNavClick = (section) => {
-    const sectionId = section.toLowerCase().replace(/\s+/g, '');
-    if (onNavClick) {
+  const handleNavClick = (section, navigateToPath = null) => {
+    if (navigateToPath && location.pathname !== navigateToPath) {
+      // Navigate to main page with state to scroll to section
+      navigate(navigateToPath, { state: { scrollTo: section.toLowerCase().replace(/\s+/g, '') } });
+    } else if (onNavClick) {
+      // Already on main page, just scroll
+      const sectionId = section.toLowerCase().replace(/\s+/g, '');
       onNavClick(sectionId);
     }
   };
@@ -82,10 +89,11 @@ export default function Header({ onNavClick }) {
           gap: { xs: 0.5, sm: 0 },
           alignItems: { xs: 'flex-end', sm: 'center' }
         }}>
-          <NavButton onClick={() => window.location.href = '/'}>O nás</NavButton>
-          <NavButton onClick={() => handleNavClick('Kontakt')}>Kontakt</NavButton>
-          <NavButton onClick={() => handleNavClick('Galerie')}>Galerie</NavButton>
-          <NavButton onClick={() => window.location.href = '/novinky'}>Novinky</NavButton>
+          <NavButton onClick={() => handleNavClick('O nás', '/')}>O nás</NavButton>
+          <NavButton onClick={() => handleNavClick('Kontakt', '/')}>Kontakt</NavButton>
+          <NavButton onClick={() => handleNavClick('Galerie', '/')}>Galerie</NavButton>
+          <NavButton onClick={() => handleNavClick('Novinky', '/novinky')}>Novinky</NavButton>
+          <NavButton onClick={() => handleNavClick('Naše lodě', '/nase-lode')}>Naše lodě</NavButton>
         </Box>
       </Toolbar>
     </AppBar>
