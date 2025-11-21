@@ -91,7 +91,7 @@ Environment:
 - **Theme Implementation**: Full MUI theme with brand colors from PDF (#6396C1, #1F2646, #8F271E, #BF7D56, #6B6948) and Outfit fonts
 - **Markdown Content**: "O nás" (onas.md), "Kontakt" (vedeni.md), "Naše lodě" (boats.md) sections with theme-aware typography (navy headings, Outfit fonts)
 - **Gallery Component**: Enhanced MUI ImageList masonry layout, fullscreen modal dialogs with theme-styled close buttons, full-resolution image loading on click, click-outside-to-close functionality
-- **News Component**: Full news/articles system with year-based browsing, SharePoint integration, and markdown rendering
+- **News Component**: Enhanced news/articles system with year-based browsing, SharePoint integration, markdown rendering, article thumbnails, and auto-generated excerpts with responsive card layout
 - **Boats Component**: Dedicated page for boat specifications with responsive 2-column layout, centered tables and thumbnails, full-screen modal viewing, unified thumbnail dimensions (250x200px), and proper source attribution formatting
 - **Navigation**: Expanded to active sections (O nás, Kontakt, Galerie, Novinky, Naše lodě) with reusable NavButton component
 - **Content Management**: Markdown-based with proper theming via sx selectors, table support via remark-gfm
@@ -269,7 +269,7 @@ Environment:
 
 ---
 
-*Last Updated: 2025-11-17*
+*Last Updated: 2025-11-22*
 *Recent Gallery Enhancement: 2025-11-12*
 *Recent Theme Implementation: 2025-11-12*
 *Recent PHP Proxy Implementation: 2025-11-13*
@@ -282,6 +282,8 @@ Environment:
 *Recent Boats Page Implementation: 2025-11-17*
 *Recent Boats Page UI Enhancement: 2025-11-17*
 *Recent Boats Layout Refinement: 2025-11-17*
+*Recent News Component Enhancement: 2025-11-22*
+*Recent Navigation Button Fix: 2025-11-22*
 *Analyzed by: Roo (Code & Architect Modes)*
 
 ## Workflow Rules for Session Management
