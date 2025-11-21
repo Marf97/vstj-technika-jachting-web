@@ -90,7 +90,7 @@ export default function News() {
   const [excerptsLoading, setExcerptsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const PROXY_URL = 'http://localhost:8080/php/endpoints/news.php';
+  const PROXY_URL = 'https://jachting.technika-praha.cz/php/endpoints/news.php';
 
   // Get URL parameters
   const urlYear = searchParams.get('year');

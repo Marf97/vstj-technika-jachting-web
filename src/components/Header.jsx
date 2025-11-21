@@ -12,8 +12,8 @@ export default function Header({ onNavClick }) {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const handleNavClick = (section, navigateToPath = null) => {
-    if (navigateToPath && location.pathname !== navigateToPath) {
+  const handleNavClick = (section, navigateToPath = null, forceNavigate = false) => {
+    if (navigateToPath && (forceNavigate || location.pathname !== navigateToPath)) {
       // Navigate to main page with state to scroll to section
       navigate(navigateToPath, { state: { scrollTo: section.toLowerCase().replace(/\s+/g, '') } });
     } else if (onNavClick) {
@@ -92,7 +92,7 @@ export default function Header({ onNavClick }) {
           <NavButton onClick={() => handleNavClick('O nás', '/')}>O nás</NavButton>
           <NavButton onClick={() => handleNavClick('Kontakt', '/')}>Kontakt</NavButton>
           <NavButton onClick={() => handleNavClick('Galerie', '/')}>Galerie</NavButton>
-          <NavButton onClick={() => handleNavClick('Novinky', '/novinky')}>Novinky</NavButton>
+          <NavButton onClick={() => handleNavClick('Novinky', '/novinky', true)}>Novinky</NavButton>
           <NavButton onClick={() => handleNavClick('Naše lodě', '/nase-lode')}>Naše lodě</NavButton>
         </Box>
       </Toolbar>
