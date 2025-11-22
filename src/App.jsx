@@ -9,6 +9,7 @@ import Footer from './components/Footer'
 import Typography from '@mui/material/Typography'
 import Gallery from './components/Gallery'
 import News from './components/News'
+import NewsFeed from './components/NewsFeed'
 import Boats from './components/Boats'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -73,6 +74,9 @@ function AppContent() {
               <>
                 <Box id="onas" sx={{ '& h1, & h2, & h3, & h4, & h5, & h6': { color: 'primary.main', fontWeight: 500 }, '& p': { color: 'text.primary', fontWeight: 300 } }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{onasContent || 'Načítám obsah...'}</ReactMarkdown>
+                </Box>
+                <Box id="novinky">
+                  <NewsFeed />
                 </Box>
                 <Box id="kontakt" sx={{ '& h1, & h2, & h3, & h4, & h5, & h6': { color: 'primary.main', fontWeight: 500 }, '& p': { color: 'text.primary', fontWeight: 300 } }}>
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{vedeniContent || 'Načítám obsah...'}</ReactMarkdown>
