@@ -30,7 +30,7 @@ $itemId = $_GET['id'] ?? null;
     require_once __DIR__ . '/../modules/Gallery.php';
 
     try {
-                $auth = new Auth();
+        $auth = new Auth();
         $graphAPI = new GraphAPI($auth);
         $gallery = new Gallery($graphAPI);
 
@@ -38,9 +38,6 @@ $itemId = $_GET['id'] ?? null;
         $imageResult = $gallery->getImageContent($itemId);
         $fetchTime = microtime(true) - $startTime;
 
-                    'Image fetch performance - ItemID: %s, Fetch time: %.3fs, Size: %d bytes, MIME: %s',
-            $itemId, $fetchTime, strlen($imageResult['data']), $imageResult['mimeType']
-        ));
 
         header('Content-Type: ' . $imageResult['mimeType']);
         header('X-Performance-Fetch-Time: ' . number_format($fetchTime, 3));
