@@ -57,8 +57,7 @@ class Router {
                     break;
             }
         } catch (Exception $e) {
-            error_log("Router error for action '{$action}': " . $e->getMessage());
-            $this->respond(['success' => false, 'error' => $e->getMessage()], 500);
+                        $this->respond(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 

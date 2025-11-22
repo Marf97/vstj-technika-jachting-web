@@ -103,8 +103,7 @@ try {
     }
 
 } catch (Exception $e) {
-    error_log('News endpoint error: ' . $e->getMessage());
-    http_response_code(500);
+        http_response_code(500);
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage()

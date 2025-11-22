@@ -121,8 +121,7 @@ class Gallery {
 
                     $allImages = array_merge($allImages, $images);
                 } catch (Exception $e) {
-                    error_log("Failed to access gallery year folder {$yearName}: " . $e->getMessage());
-                    continue;
+                                        continue;
                 }
             }
         }
@@ -156,8 +155,7 @@ class Gallery {
     }
 
     public function getImageContent(string $itemId): array {
-        error_log("DEBUG: Gallery.getImageContent called for item: {$itemId}");
-
+        
         $siteId = $this->graphAPI->getSiteId();
 
         // Check for cached image (cache for 1 hour)
@@ -165,46 +163,25 @@ class Gallery {
         if (file_exists($imageCacheFile)) {
             $cacheData = json_decode(@file_get_contents($imageCacheFile), true);
             if ($cacheData && isset($cacheData['expires']) && time() < $cacheData['expires']) {
-                error_log("DEBUG: Returning cached image data (" . strlen($cacheData['data']) . " bytes, MIME: {$cacheData['mimeType']})");
-                return $cacheData;
+                                return $cacheData;
             }
         }
-
-        // Alternative: Return @microsoft.graph.downloadUrl for direct frontend use
-        // Uncomment to use this simpler approach (fewer server-side redirects)
-        /*
-        $metadataUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}?\$select=id,name,@microsoft.graph.downloadUrl,file";
-        $metadata = $this->graphAPI->callAPI($metadataUrl);
-        if (isset($metadata['@microsoft.graph.downloadUrl'])) {
-            return [
-                'data' => null, // No server-side download needed
-                'mimeType' => $metadata['file']['mimeType'] ?? 'image/jpeg',
-                'downloadUrl' => $metadata['@microsoft.graph.downloadUrl'] // Frontend can use this directly
-            ];
-        }
-        */
 
         // First, try to get the download URL from metadata (more robust)
         $metadataUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}?\$select=id,name,@microsoft.graph.downloadUrl,file";
         try {
             $metadata = $this->graphAPI->callAPI($metadataUrl);
-            error_log("DEBUG: Metadata response: " . json_encode($metadata));
-            $downloadUrl = $metadata['@microsoft.graph.downloadUrl'] ?? null;
+                        $downloadUrl = $metadata['@microsoft.graph.downloadUrl'] ?? null;
             $mimeType = $metadata['file']['mimeType'] ?? 'image/jpeg';
             if (!$downloadUrl) {
-                error_log("DEBUG: No download URL in metadata, falling back to /content");
-                $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
+                                $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
             }
-            error_log("DEBUG: Using download URL: {$downloadUrl}, MIME: {$mimeType}");
-        } catch (Exception $e) {
-            error_log("DEBUG: Failed to get metadata, falling back to /content: " . $e->getMessage());
-            $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
+                    } catch (Exception $e) {
+                        $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
             $mimeType = 'image/jpeg'; // fallback
-            error_log("DEBUG: Using fallback content URL: {$downloadUrl}, MIME: {$mimeType}");
-        }
+                    }
 
-        error_log("DEBUG: Fetching image from: {$downloadUrl}");
-
+        
         // Fetch image content using curl with redirect following
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $downloadUrl);
@@ -226,17 +203,13 @@ class Gallery {
 
         curl_close($ch);
 
-        error_log("DEBUG: HTTP Code: {$httpCode}, Content-Type: {$contentType}, Redirects: {$redirectCount}, Effective URL: {$effectiveUrl}, Error: {$error}");
-        error_log("DEBUG: Response size: " . ($imageData ? strlen($imageData) : 'null') . " bytes");
-
+                
         if ($httpCode < 200 || $httpCode >= 300 || $imageData === false) {
             $responseBody = substr($imageData ?: '', 0, 500); // Log first 500 chars of response if available
-            error_log("ERROR: Image fetch failed - HTTP {$httpCode}, Redirects: {$redirectCount}, Final URL: {$effectiveUrl}, Error: {$error}, Response: {$responseBody}");
-
+            
             // Special handling for auth redirects (redirect to login instead of download)
             if ($redirectCount > 0 && strpos($effectiveUrl, 'login.microsoftonline.com') !== false) {
-                error_log("ERROR: Authentication issue detected - redirecting to login instead of download URL");
-            }
+                            }
 
             throw new Exception("Failed to fetch image content: HTTP {$httpCode}, Error: {$error}");
         }
@@ -251,8 +224,7 @@ class Gallery {
             'mimeType' => $mimeType
         ];
 
-        error_log("DEBUG: Successfully fetched image, MIME: {$mimeType}, caching for 1 hour");
-
+        
         // Cache the result (data and mimeType) for 1 hour
         $cacheData = $result;
         $cacheData['expires'] = time() + 3600;
