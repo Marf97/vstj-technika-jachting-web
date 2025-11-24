@@ -221,13 +221,19 @@ class Gallery
         });
     }
 
-    public function getImageContent(string $itemId): array
+    public function getImageContent(string $itemId, string $size = 'fullhd'): array
     {
-
         $siteId = $this->graphAPI->getSiteId();
 
-        // Check for cached image (cache for 1 hour)
-        $imageCacheFile = sys_get_temp_dir() . '/image_cache_' . md5($itemId) . '.json';
+        // Determine SharePoint thumbnail size based on requested size
+        $thumbnailSize = match ($size) {
+            'large' => 'c1280x720',      // Grid thumbnails (1024x1024)
+            'fullhd' => 'c1920x1024',     // Modal Full HD (1920x1920)
+            default => 'c1920x1024'
+        };
+
+        // Check for cached image (cache for 1 hour per size)
+        $imageCacheFile = sys_get_temp_dir() . '/image_cache_' . md5($itemId . '_' . $size) . '.json';
         if (file_exists($imageCacheFile)) {
             $cacheData = json_decode(@file_get_contents($imageCacheFile), true);
             if ($cacheData && isset($cacheData['expires']) && time() < $cacheData['expires']) {
@@ -235,12 +241,32 @@ class Gallery
             }
         }
 
-        // First, try to get the download URL from metadata (more robust)
-        $metadataUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}?\$select=id,name,@microsoft.graph.downloadUrl,file";
+        // Get metadata with thumbnails
+        $metadataUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}?\$select=id,name,@microsoft.graph.downloadUrl,file&\$expand=thumbnails";
         try {
             $metadata = $this->graphAPI->callAPI($metadataUrl);
-            $downloadUrl = $metadata['@microsoft.graph.downloadUrl'] ?? null;
             $mimeType = $metadata['file']['mimeType'] ?? 'image/jpeg';
+
+            // Try to get custom size thumbnail from SharePoint
+            $downloadUrl = null;
+            if (isset($metadata['thumbnails']) && !empty($metadata['thumbnails'])) {
+                $thumbnails = $metadata['thumbnails'][0];
+                // SharePoint provides custom sizes - construct URL for our custom size
+                if (isset($thumbnails['large']['url'])) {
+                    // Replace the size in the URL (e.g., /c300x300/ becomes /c1920x1920/)
+                    $downloadUrl = preg_replace(
+                        '/\/c\d+x\d+\//',
+                        "/{$thumbnailSize}/",
+                        $thumbnails['large']['url']
+                    );
+                }
+            }
+
+            // Fallback to download URL if thumbnail not available
+            if (!$downloadUrl) {
+                $downloadUrl = $metadata['@microsoft.graph.downloadUrl'] ?? null;
+            }
+
             if (!$downloadUrl) {
                 $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
             }

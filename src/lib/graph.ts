@@ -185,10 +185,14 @@ export function pickThumbnailUrl(item: any): string | undefined {
 }
 
 // Content URL pro full-size image (pro proxy nebo direct access)
-export function getImageContentUrl(proxyUrl: string, itemId: string) {
+export function getImageContentUrl(
+  proxyUrl: string,
+  itemId: string,
+  size: "large" | "fullhd" = "fullhd"
+) {
   // The proxyUrl is already the full endpoint URL (/api/php/endpoints/gallery.php)
-  // We just need to add the id parameter for individual image fetching
-  return `${proxyUrl}?id=${encodeURIComponent(itemId)}`;
+  // We just need to add the id and size parameters for individual image fetching
+  return `${proxyUrl}?id=${encodeURIComponent(itemId)}&size=${size}`;
 }
 
 // Get article image URL

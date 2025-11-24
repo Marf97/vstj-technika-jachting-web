@@ -19,11 +19,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Check if this is an image content request (no action parameter)
 $itemId = $_GET['id'] ?? null;
+$size = $_GET['size'] ?? 'fullhd';
+
 if ($itemId && !isset($_GET['action'])) {
     // Handle individual image fetching
-
-    header('Content-Type: image/jpeg');
-    header('Cache-Control: private, max-age=3600');
 
     require_once __DIR__ . '/../core/Auth.php';
     require_once __DIR__ . '/../core/GraphAPI.php';
@@ -35,12 +34,26 @@ if ($itemId && !isset($_GET['action'])) {
         $gallery = new Gallery($graphAPI);
 
         $startTime = microtime(true);
-        $imageResult = $gallery->getImageContent($itemId);
+        $imageResult = $gallery->getImageContent($itemId, $size);
         $fetchTime = microtime(true) - $startTime;
 
+        // Generate ETag from image data for caching
+        $etag = md5($imageResult['data']);
 
+        // Set caching headers
         header('Content-Type: ' . $imageResult['mimeType']);
+        header('Cache-Control: public, max-age=86400'); // 24 hours
+        header("ETag: \"{$etag}\"");
+        header('Vary: Accept-Encoding');
         header('X-Performance-Fetch-Time: ' . number_format($fetchTime, 3));
+
+        // Check If-None-Match for conditional requests
+        $ifNoneMatch = $_SERVER['HTTP_IF_NONE_MATCH'] ?? null;
+        if ($ifNoneMatch === "\"{$etag}\"") {
+            http_response_code(304);
+            exit();
+        }
+
         echo $imageResult['data'];
     } catch (Exception $e) {
         http_response_code(500);

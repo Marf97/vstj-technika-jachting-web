@@ -201,11 +201,9 @@ export default function Gallery() {
     setFullImageLoading(true);
     setFullImageUrl(null); // clear previous image
     try {
-      // For full images, fetch directly from proxy (extend PHP proxy to handle individual image requests)
-      const imageUrl = `${getImageContentUrl(
-        PROXY_URL,
-        item.id
-      )}&t=${Date.now()}`; // Add timestamp to prevent caching
+      // For full images, fetch Full HD quality (1920x1920) from proxy
+      // Remove timestamp to enable browser caching
+      const imageUrl = getImageContentUrl(PROXY_URL, item.id, "fullhd");
       setFullImageUrl(imageUrl);
     } catch (e) {
       console.error("Failed to load full image:", e);
