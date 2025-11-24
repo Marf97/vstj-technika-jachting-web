@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import React from "react";
 import {
   fetchImagesFromProxy,
   fetchGalleryYears,
@@ -26,6 +27,60 @@ type Photo = {
   year?: string;
 };
 
+// Client-side cache interfaces
+interface ImageCache {
+  [key: string]: {
+    photos: (Photo | string)[];
+    timestamp: number;
+    total: number;
+    hasMore: boolean;
+    offset: number;
+  };
+}
+
+// Cache duration: 10 minutes
+const CACHE_DURATION = 10 * 60 * 1000;
+
+// Helper functions for cache management
+const isCacheExpired = (timestamp: number): boolean => {
+  return Date.now() - timestamp > CACHE_DURATION;
+};
+
+const isNearExpiration = (timestamp: number): boolean => {
+  const age = Date.now() - timestamp;
+  return age > CACHE_DURATION * 0.8; // 80% of lifetime
+};
+
+// Memoized Photo Item Component
+const PhotoItem = React.memo(
+  ({
+    photo,
+    onClick,
+  }: {
+    photo: Photo;
+    onClick: (photo: Photo, item: any) => void;
+  }) => {
+    return (
+      <ImageListItem sx={{ aspectRatio: "4/3" }}>
+        <img
+          src={photo.src}
+          alt={photo.name}
+          loading="lazy"
+          style={{
+            cursor: "pointer",
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+          onClick={() => onClick(photo, photo.item)}
+        />
+      </ImageListItem>
+    );
+  }
+);
+
+PhotoItem.displayName = "PhotoItem";
+
 export default function Gallery() {
   const [photos, setPhotos] = useState<(Photo | string)[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +102,10 @@ export default function Gallery() {
   );
   const [yearsLoading, setYearsLoading] = useState(false);
 
-  const PROXY_URL =
-    "https://jachting.technika-praha.cz/php/endpoints/gallery.php";
+  // Client-side cache state
+  const [imageCache, setImageCache] = useState<ImageCache>({});
+
+  const PROXY_URL = import.meta.env.VITE_GALLERY_PROXY_URL;
   const INITIAL_LOAD = 20;
   const LOAD_MORE = 10;
 
@@ -172,22 +229,45 @@ export default function Gallery() {
     setYearMenuAnchor(null);
   };
 
-  const handleYearSelect = (year: string | null) => {
-    setYearMenuAnchor(null);
+  // Memoized callback for photo click
+  const handlePhotoClickMemo = useCallback((photo: Photo, item: any) => {
+    handlePhotoClick(photo, item);
+  }, []);
 
-    // Only reset and reload if the year selection actually changed
-    if (selectedYear !== year) {
+  const handleYearSelect = useCallback(
+    (year: string | null) => {
+      setYearMenuAnchor(null);
+
+      // Only proceed if the year selection actually changed
+      if (selectedYear === year) {
+        return;
+      }
+
+      const cacheKey = year || "all";
+      const cached = imageCache[cacheKey];
+
+      // Show cached data immediately if available
+      if (cached && !isCacheExpired(cached.timestamp)) {
+        setPhotos(cached.photos);
+        setTotalImages(cached.total);
+        setHasMore(cached.hasMore);
+        offsetRef.current = cached.offset;
+        setError(null);
+        setLoading(false);
+      } else {
+        // Reset gallery state when switching years
+        setPhotos([]);
+        setLoading(true);
+        setHasMore(true);
+        setTotalImages(0);
+        offsetRef.current = 0;
+        setError(null);
+      }
+
       setSelectedYear(year);
-      // Reset gallery state when switching years
-      setPhotos([]);
-      setLoading(true);
-      setHasMore(true);
-      setTotalImages(0);
-      offsetRef.current = 0;
-      setError(null);
-    }
-    // If same year is selected, do nothing - just close the menu
-  };
+    },
+    [selectedYear, imageCache]
+  );
 
   const loadAvailableYears = useCallback(async () => {
     if (availableYears.length > 0) return; // Already loaded
@@ -210,6 +290,21 @@ export default function Gallery() {
 
   useEffect(() => {
     (async () => {
+      const cacheKey = selectedYear || "all";
+      const cached = imageCache[cacheKey];
+
+      // Check cache first
+      if (cached && !isCacheExpired(cached.timestamp)) {
+        // Use cached data instantly
+        setPhotos(cached.photos);
+        setTotalImages(cached.total);
+        setHasMore(cached.hasMore);
+        offsetRef.current = cached.offset;
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
 
@@ -229,6 +324,7 @@ export default function Gallery() {
         });
 
         // Group photos by year for display (only in default mode)
+        let finalPhotos: (string | Photo)[];
         if (selectedYear === null && photosResolved.length > 0) {
           const photosByYear = new Map<string, Photo[]>();
           photosResolved.forEach((photo) => {
@@ -246,21 +342,147 @@ export default function Gallery() {
             groupedPhotos.push(...photos); // Photos for this year
           });
 
-          setPhotos(groupedPhotos);
+          finalPhotos = groupedPhotos;
         } else {
-          setPhotos(photosResolved);
+          finalPhotos = photosResolved;
         }
+
+        setPhotos(finalPhotos);
         setTotalImages(result.total);
         setHasMore(result.hasMore);
         offsetRef.current = INITIAL_LOAD;
         setError(null);
+
+        // Update cache
+        setImageCache((prev) => ({
+          ...prev,
+          [cacheKey]: {
+            photos: finalPhotos,
+            timestamp: Date.now(),
+            total: result.total,
+            hasMore: result.hasMore,
+            offset: INITIAL_LOAD,
+          },
+        }));
       } catch (e: any) {
         setError(e.message ?? String(e));
       } finally {
         setLoading(false);
       }
     })();
-  }, [loadImages, PROXY_URL, selectedYear]);
+  }, [loadImages, PROXY_URL, selectedYear, imageCache]);
+
+  // Background refresh when cache is near expiration
+  useEffect(() => {
+    const cacheKey = selectedYear || "all";
+    const cached = imageCache[cacheKey];
+
+    if (cached && isNearExpiration(cached.timestamp)) {
+      // Refresh in background without UI indication
+      (async () => {
+        try {
+          const result = await loadImages(INITIAL_LOAD, 0);
+
+          const photosResolved: Photo[] = result.images.map((it: any) => {
+            const thumb = pickThumbnailUrl(it);
+            return {
+              id: it.id,
+              name: it.name,
+              src: thumb || getImageContentUrl(PROXY_URL, it.id),
+              item: it,
+              year: it._year || undefined,
+            };
+          });
+
+          let finalPhotos: (string | Photo)[];
+          if (selectedYear === null && photosResolved.length > 0) {
+            const photosByYear = new Map<string, Photo[]>();
+            photosResolved.forEach((photo) => {
+              const year = photo.year || "Neznámý rok";
+              if (!photosByYear.has(year)) {
+                photosByYear.set(year, []);
+              }
+              photosByYear.get(year)!.push(photo);
+            });
+
+            const groupedPhotos: (string | Photo)[] = [];
+            photosByYear.forEach((photos, year) => {
+              groupedPhotos.push(year);
+              groupedPhotos.push(...photos);
+            });
+
+            finalPhotos = groupedPhotos;
+          } else {
+            finalPhotos = photosResolved;
+          }
+
+          setImageCache((prev) => ({
+            ...prev,
+            [cacheKey]: {
+              photos: finalPhotos,
+              timestamp: Date.now(),
+              total: result.total,
+              hasMore: result.hasMore,
+              offset: INITIAL_LOAD,
+            },
+          }));
+        } catch (err) {
+          console.error("Background refresh failed:", err);
+        }
+      })();
+    }
+  }, [selectedYear, imageCache, loadImages, PROXY_URL]);
+
+  // Prefetch adjacent years
+  useEffect(() => {
+    if (selectedYear && availableYears.length > 0) {
+      const currentIndex = availableYears.indexOf(selectedYear);
+      const nextYear = availableYears[currentIndex + 1];
+      const prevYear = availableYears[currentIndex - 1];
+
+      // Prefetch in background after a short delay
+      [nextYear, prevYear].forEach((year) => {
+        if (year && !imageCache[year]) {
+          setTimeout(() => {
+            (async () => {
+              try {
+                const result = await fetchImagesFromProxy(
+                  PROXY_URL,
+                  INITIAL_LOAD,
+                  0,
+                  year
+                );
+
+                const photosResolved: Photo[] = result.images.map((it: any) => {
+                  const thumb = pickThumbnailUrl(it);
+                  return {
+                    id: it.id,
+                    name: it.name,
+                    src: thumb || getImageContentUrl(PROXY_URL, it.id),
+                    item: it,
+                    year: it._year || undefined,
+                  };
+                });
+
+                setImageCache((prev) => ({
+                  ...prev,
+                  [year]: {
+                    photos: photosResolved,
+                    timestamp: Date.now(),
+                    total: result.total,
+                    hasMore: result.hasMore,
+                    offset: INITIAL_LOAD,
+                  },
+                }));
+              } catch (err) {
+                console.error(`Prefetch failed for year ${year}:`, err);
+              }
+            })();
+          }, 1000); // 1 second delay
+        }
+      });
+    }
+  }, [selectedYear, availableYears, imageCache, PROXY_URL]);
 
   // Intersection Observer for infinite scrolling
   useEffect(() => {

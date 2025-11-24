@@ -28,7 +28,7 @@ export default function NewsFeed() {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const PROXY_URL = "https://jachting.technika-praha.cz/php/endpoints/news.php";
+  const PROXY_URL = import.meta.env.VITE_NEWS_PROXY_URL;
 
   useEffect(() => {
     loadArticles();

@@ -18,8 +18,10 @@ class News
      */
     private function getCachedArticles(?string $year): ?array
     {
+        // Cache version - increment this when data structure changes
+        $cacheVersion = 'v2';
         $cacheKey = $year ?? 'all';
-        $cacheFile = sys_get_temp_dir() . '/news_cache_' . $cacheKey . '_' . md5($cacheKey) . '.json';
+        $cacheFile = sys_get_temp_dir() . '/news_cache_' . $cacheVersion . '_' . $cacheKey . '_' . md5($cacheKey) . '.json';
 
         if (!file_exists($cacheFile)) {
             return null;
@@ -45,8 +47,10 @@ class News
      */
     private function cacheArticles(?string $year, array $articles): void
     {
+        // Cache version - increment this when data structure changes
+        $cacheVersion = 'v2';
         $cacheKey = $year ?? 'all';
-        $cacheFile = sys_get_temp_dir() . '/news_cache_' . $cacheKey . '_' . md5($cacheKey) . '.json';
+        $cacheFile = sys_get_temp_dir() . '/news_cache_' . $cacheVersion . '_' . $cacheKey . '_' . md5($cacheKey) . '.json';
 
         $cacheData = [
             'expires' => time() + Config::NEWS_CACHE_TIME,
@@ -126,15 +130,19 @@ class News
                     return $bTime - $aTime;
                 });
 
-                $articles = array_map(function ($item) use ($year) {
-                    $thumbnail = $this->getArticleThumbnailUrl($item['id']);
+                // Batch fetch thumbnails and excerpts for all articles
+                $enrichedData = $this->batchFetchArticleData($articleFolders);
+
+                $articles = array_map(function ($item) use ($year, $enrichedData) {
+                    $articleId = $item['id'];
                     return [
-                        'id' => $item['id'],
+                        'id' => $articleId,
                         'title' => $item['name'],
                         'year' => $year,
                         'createdDateTime' => $item['createdDateTime'],
                         'lastModifiedDateTime' => $item['lastModifiedDateTime'],
-                        'thumbnail' => $thumbnail
+                        'thumbnail' => $enrichedData[$articleId]['thumbnail'] ?? null,
+                        'excerpt' => $enrichedData[$articleId]['excerpt'] ?? null
                     ];
                 }, $articleFolders);
             } catch (Exception $e) {
@@ -157,7 +165,8 @@ class News
                     return intval($b['name']) - intval($a['name']);
                 });
 
-                // Collect articles from all years
+                // Collect all article folders from all years
+                $allArticleFolders = [];
                 foreach ($yearFolders as $yearFolder) {
                     $yearName = $yearFolder['name'];
                     $yearFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::NEWS_PATH . "/{$yearName}:/children?\$select=id,name,folder,createdDateTime,lastModifiedDateTime";
@@ -176,23 +185,33 @@ class News
                             return $bTime - $aTime;
                         });
 
-                        $yearArticles = array_map(function ($item) use ($yearName) {
-                            $thumbnail = $this->getArticleThumbnailUrl($item['id']);
-                            return [
-                                'id' => $item['id'],
-                                'title' => $item['name'],
-                                'year' => $yearName,
-                                'createdDateTime' => $item['createdDateTime'],
-                                'lastModifiedDateTime' => $item['lastModifiedDateTime'],
-                                'thumbnail' => $thumbnail
-                            ];
-                        }, $articleFolders);
+                        // Add year info to each article folder
+                        foreach ($articleFolders as &$folder) {
+                            $folder['_year'] = $yearName;
+                        }
 
-                        $articles = array_merge($articles, $yearArticles);
+                        $allArticleFolders = array_merge($allArticleFolders, $articleFolders);
                     } catch (Exception $e) {
                         continue;
                     }
                 }
+
+                // Batch fetch thumbnails and excerpts for all articles
+                $enrichedData = $this->batchFetchArticleData($allArticleFolders);
+
+                $articles = array_map(function ($item) use ($enrichedData) {
+                    $articleId = $item['id'];
+                    $yearName = $item['_year'];
+                    return [
+                        'id' => $articleId,
+                        'title' => $item['name'],
+                        'year' => $yearName,
+                        'createdDateTime' => $item['createdDateTime'],
+                        'lastModifiedDateTime' => $item['lastModifiedDateTime'],
+                        'thumbnail' => $enrichedData[$articleId]['thumbnail'] ?? null,
+                        'excerpt' => $enrichedData[$articleId]['excerpt'] ?? null
+                    ];
+                }, $allArticleFolders);
             } catch (Exception $e) {
                 $articles = [];
             }
@@ -202,6 +221,168 @@ class News
         $this->cacheArticles($year, $articles);
 
         return $articles;
+    }
+
+    /**
+     * Batch fetch thumbnails and excerpts for multiple articles in parallel
+     * @param array $articleFolders Array of article folder items
+     * @return array Associative array with article IDs as keys and data (thumbnail, excerpt) as values
+     */
+    private function batchFetchArticleData(array $articleFolders): array
+    {
+        if (empty($articleFolders)) {
+            return [];
+        }
+
+        $siteId = $this->graphAPI->getSiteId();
+        $accessToken = $this->graphAPI->getAccessToken();
+
+        // Initialize curl multi handle for parallel requests
+        $multiHandle = curl_multi_init();
+        $curlHandles = [];
+        $articleIdMap = [];
+
+        // Create curl handles for each article folder's children endpoint
+        foreach ($articleFolders as $folder) {
+            $articleId = $folder['id'];
+            $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$articleId}/children?\$select=id,name,file,mimeType";
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $folderUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $accessToken
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+            curl_multi_add_handle($multiHandle, $ch);
+            $curlHandles[(int)$ch] = $ch;
+            $articleIdMap[(int)$ch] = $articleId;
+        }
+
+        // Execute all requests in parallel
+        $running = null;
+        do {
+            curl_multi_exec($multiHandle, $running);
+            curl_multi_select($multiHandle);
+        } while ($running > 0);
+
+        // Collect results and prepare for second batch (thumbnail URLs and markdown content)
+        $folderContents = [];
+        foreach ($curlHandles as $handleId => $ch) {
+            $response = curl_multi_getcontent($ch);
+            $articleId = $articleIdMap[$handleId];
+
+            if ($response !== false) {
+                $data = json_decode($response, true);
+                if ($data && isset($data['value'])) {
+                    $folderContents[$articleId] = $data['value'];
+                }
+            }
+
+            curl_multi_remove_handle($multiHandle, $ch);
+            curl_close($ch);
+        }
+        curl_multi_close($multiHandle);
+
+        // Now batch fetch thumbnail URLs and markdown content
+        $multiHandle = curl_multi_init();
+        $curlHandles = [];
+        $requestMap = [];
+
+        foreach ($folderContents as $articleId => $items) {
+            $thumbnailFileId = null;
+            $markdownFileId = null;
+
+            // Find thumbnail.jpg and .md file
+            foreach ($items as $item) {
+                if (isset($item['file'])) {
+                    if (strtolower($item['name']) === 'thumbnail.jpg') {
+                        $thumbnailFileId = $item['id'];
+                    } elseif ($this->isMarkdownFile($item)) {
+                        $markdownFileId = $item['id'];
+                    }
+                }
+            }
+
+            // Add thumbnail URL request
+            if ($thumbnailFileId) {
+                $thumbnailUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$thumbnailFileId}?\$select=@microsoft.graph.downloadUrl";
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $thumbnailUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HEADER, false);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Authorization: Bearer ' . $accessToken
+                ]);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+                curl_multi_add_handle($multiHandle, $ch);
+                $curlHandles[(int)$ch] = $ch;
+                $requestMap[(int)$ch] = ['type' => 'thumbnail', 'articleId' => $articleId];
+            }
+
+            // Add markdown content request
+            if ($markdownFileId) {
+                $contentUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$markdownFileId}/content";
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $contentUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HEADER, false);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Authorization: Bearer ' . $accessToken
+                ]);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+                curl_multi_add_handle($multiHandle, $ch);
+                $curlHandles[(int)$ch] = $ch;
+                $requestMap[(int)$ch] = ['type' => 'markdown', 'articleId' => $articleId];
+            }
+        }
+
+        // Execute all thumbnail and markdown requests in parallel
+        $running = null;
+        do {
+            curl_multi_exec($multiHandle, $running);
+            curl_multi_select($multiHandle);
+        } while ($running > 0);
+
+        // Collect final results
+        $enrichedData = [];
+        foreach ($curlHandles as $handleId => $ch) {
+            $response = curl_multi_getcontent($ch);
+            $requestInfo = $requestMap[$handleId];
+            $articleId = $requestInfo['articleId'];
+
+            if (!isset($enrichedData[$articleId])) {
+                $enrichedData[$articleId] = ['thumbnail' => null, 'excerpt' => null];
+            }
+
+            if ($response !== false) {
+                if ($requestInfo['type'] === 'thumbnail') {
+                    $data = json_decode($response, true);
+                    if ($data && isset($data['@microsoft.graph.downloadUrl'])) {
+                        $enrichedData[$articleId]['thumbnail'] = $data['@microsoft.graph.downloadUrl'];
+                    }
+                } elseif ($requestInfo['type'] === 'markdown') {
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    if ($httpCode >= 200 && $httpCode < 300) {
+                        $enrichedData[$articleId]['excerpt'] = $this->createExcerptFromMarkdown($response);
+                    }
+                }
+            }
+
+            curl_multi_remove_handle($multiHandle, $ch);
+            curl_close($ch);
+        }
+        curl_multi_close($multiHandle);
+
+        return $enrichedData;
     }
 
     /**

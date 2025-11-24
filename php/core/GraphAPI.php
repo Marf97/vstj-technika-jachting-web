@@ -1,19 +1,22 @@
 <?php
 // VSTJ Technika Jachting Web - Graph API Class
 
-class GraphAPI {
+class GraphAPI
+{
     private Auth $auth;
     private ?string $siteId = null;
     private string $siteHost;
     private string $sitePath;
 
-    public function __construct(Auth $auth) {
+    public function __construct(Auth $auth)
+    {
         $this->auth = $auth;
         $this->siteHost = Config::SITE_HOST;
         $this->sitePath = Config::SITE_PATH;
     }
 
-    public function callAPI(string $url): array {
+    public function callAPI(string $url): array
+    {
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
@@ -31,11 +34,13 @@ class GraphAPI {
         return json_decode($response, true);
     }
 
-    public function getAccessToken(): string {
+    public function getAccessToken(): string
+    {
         return $this->auth->getAccessToken();
     }
 
-    public function getSiteId(): string {
+    public function getSiteId(): string
+    {
         if ($this->siteId !== null) {
             return $this->siteId;
         }
@@ -70,4 +75,3 @@ class GraphAPI {
         return $this->siteId;
     }
 }
-?>

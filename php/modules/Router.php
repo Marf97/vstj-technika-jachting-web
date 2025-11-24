@@ -1,16 +1,19 @@
 <?php
 // VSTJ Technika Jachting Web - Request Router
 
-class Router {
+class Router
+{
     private Gallery $gallery;
     private News $news;
 
-    public function __construct(Gallery $gallery, News $news) {
+    public function __construct(Gallery $gallery, News $news)
+    {
         $this->gallery = $gallery;
         $this->news = $news;
     }
 
-    public function handleRequest(): void {
+    public function handleRequest(): void
+    {
         $action = $_GET['action'] ?? 'gallery';
 
         try {
@@ -57,15 +60,15 @@ class Router {
                     break;
             }
         } catch (Exception $e) {
-                        $this->respond(['success' => false, 'error' => $e->getMessage()], 500);
+            $this->respond(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 
-    private function respond(array $data, int $statusCode = 200): void {
+    private function respond(array $data, int $statusCode = 200): void
+    {
         http_response_code($statusCode);
         header('Content-Type: application/json');
         echo json_encode($data);
         exit;
     }
 }
-?>

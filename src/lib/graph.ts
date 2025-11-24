@@ -1,24 +1,29 @@
 // Graph API utilities - now using PHP proxy instead of direct calls
 
 // Gallery functions
-export async function fetchImagesFromProxy(proxyUrl: string, limit?: number, offset?: number, year?: string) {
-  let url = proxyUrl.replace('/php_proxy.php', '/php/endpoints/gallery.php');
+export async function fetchImagesFromProxy(
+  proxyUrl: string,
+  limit?: number,
+  offset?: number,
+  year?: string
+) {
+  let url = proxyUrl.replace("/php_proxy.php", "/php/endpoints/gallery.php");
   const params = new URLSearchParams();
-  params.set('action', 'gallery');
+  params.set("action", "gallery");
 
   if (limit !== undefined) {
-    params.set('top', limit.toString());
+    params.set("top", limit.toString());
   }
   if (offset !== undefined) {
-    params.set('skip', offset.toString());
+    params.set("skip", offset.toString());
   }
   if (year !== undefined) {
-    params.set('year', year);
+    params.set("year", year);
   }
 
   const paramString = params.toString();
   if (paramString) {
-    url += (url.includes('?') ? '&' : '?') + paramString;
+    url += (url.includes("?") ? "&" : "?") + paramString;
   }
 
   const response = await fetch(url);
@@ -34,12 +39,15 @@ export async function fetchImagesFromProxy(proxyUrl: string, limit?: number, off
     images: data.images as any[],
     total: data.total as number,
     hasMore: data.hasMore as boolean,
-    year: data.year as string | null
+    year: data.year as string | null,
   };
 }
 
 export async function fetchGalleryYears(proxyUrl: string): Promise<string[]> {
-  const url = proxyUrl.replace('/php_proxy.php', '/php/endpoints/gallery.php') + (proxyUrl.includes('?') ? '&' : '?') + 'action=list_gallery_years';
+  const url =
+    proxyUrl.replace("/php_proxy.php", "/php/endpoints/gallery.php") +
+    (proxyUrl.includes("?") ? "&" : "?") +
+    "action=list_gallery_years";
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -54,18 +62,21 @@ export async function fetchGalleryYears(proxyUrl: string): Promise<string[]> {
 }
 
 // News functions
-export async function fetchArticlesFromProxy(proxyUrl: string, year?: string | null): Promise<any[]> {
-  let url = proxyUrl.replace('/php_proxy.php', '/php/endpoints/news.php');
+export async function fetchArticlesFromProxy(
+  proxyUrl: string,
+  year?: string | null
+): Promise<any[]> {
+  let url = proxyUrl.replace("/php_proxy.php", "/php/endpoints/news.php");
   const params = new URLSearchParams();
-  params.set('action', 'list_articles');
+  params.set("action", "list_articles");
 
   if (year) {
-    params.set('year', year);
+    params.set("year", year);
   }
 
   const paramString = params.toString();
   if (paramString) {
-    url += (url.includes('?') ? '&' : '?') + paramString;
+    url += (url.includes("?") ? "&" : "?") + paramString;
   }
 
   const response = await fetch(url);
@@ -88,16 +99,20 @@ export async function fetchArticlesFromProxy(proxyUrl: string, year?: string | n
   }>;
 }
 
-export async function fetchArticleFromProxy(proxyUrl: string, title: string, year: string): Promise<any> {
-  let url = proxyUrl.replace('/php_proxy.php', '/php/endpoints/news.php');
+export async function fetchArticleFromProxy(
+  proxyUrl: string,
+  title: string,
+  year: string
+): Promise<any> {
+  let url = proxyUrl.replace("/php_proxy.php", "/php/endpoints/news.php");
   const params = new URLSearchParams();
-  params.set('action', 'article');
-  params.set('title', title);
-  params.set('year', year);
+  params.set("action", "article");
+  params.set("title", title);
+  params.set("year", year);
 
   const paramString = params.toString();
   if (paramString) {
-    url += (url.includes('?') ? '&' : '?') + paramString;
+    url += (url.includes("?") ? "&" : "?") + paramString;
   }
 
   const response = await fetch(url);
@@ -113,7 +128,10 @@ export async function fetchArticleFromProxy(proxyUrl: string, title: string, yea
 }
 
 export async function fetchNewsYears(proxyUrl: string): Promise<string[]> {
-  const url = proxyUrl.replace('/php_proxy.php', '/php/endpoints/news.php') + (proxyUrl.includes('?') ? '&' : '?') + 'action=list_news_years';
+  const url =
+    proxyUrl.replace("/php_proxy.php", "/php/endpoints/news.php") +
+    (proxyUrl.includes("?") ? "&" : "?") +
+    "action=list_news_years";
 
   const response = await fetch(url);
   if (!response.ok) {
@@ -133,24 +151,28 @@ export async function fetchAvailableYears(proxyUrl: string) {
 }
 
 export async function fetchArticleExcerptFromProxy(
-    proxyUrl: string,
-    articleTitle: string,
-    year: string
-  ): Promise<string | null> {
-    const url = new URL(proxyUrl);
-    url.searchParams.set('action', 'get_article_excerpt');
-    url.searchParams.set('title', articleTitle);
-    url.searchParams.set('year', year);
+  proxyUrl: string,
+  articleTitle: string,
+  year: string
+): Promise<string | null> {
+  const url = new URL(proxyUrl);
+  url.searchParams.set("action", "get_article_excerpt");
+  url.searchParams.set("title", articleTitle);
+  url.searchParams.set("year", year);
 
-    const response = await fetch(url.toString());
+  const response = await fetch(url.toString());
 
-    if (!response.ok) {
-      console.error('Failed to fetch excerpt', response.status, response.statusText);
-      return null;
-    }
+  if (!response.ok) {
+    console.error(
+      "Failed to fetch excerpt",
+      response.status,
+      response.statusText
+    );
+    return null;
+  }
 
-    const data = await response.json();
-    return data.excerpt ?? null;
+  const data = await response.json();
+  return data.excerpt ?? null;
 }
 
 // URL pro náhled (thumbnail) – pokud není, fallback na content URL
@@ -172,6 +194,6 @@ export function getImageContentUrl(proxyUrl: string, itemId: string) {
 // Get article image URL
 export function getArticleImageUrl(proxyUrl: string, itemId: string) {
   // Use gallery endpoint for image fetching, not news endpoint
-  const galleryUrl = proxyUrl.replace('/news.php', '/gallery.php');
+  const galleryUrl = proxyUrl.replace("/news.php", "/gallery.php");
   return `${galleryUrl}?id=${encodeURIComponent(itemId)}`;
 }

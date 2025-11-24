@@ -1,28 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import Dialog from '@mui/material/Dialog';
-import IconButton from '@mui/material/IconButton';
-import CloseIcon from '@mui/icons-material/Close';
+import React, { useState, useEffect } from "react";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import Dialog from "@mui/material/Dialog";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 
 export default function Boats() {
-  const [chilliContent, setChilliContent] = useState('');
-  const [cubaContent, setCubaContent] = useState('');
+  const [chilliContent, setChilliContent] = useState("");
+  const [cubaContent, setCubaContent] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageLoading, setImageLoading] = useState(false);
 
   useEffect(() => {
-    fetch('/boats-chilli.md')
-      .then(response => response.text())
-      .then(text => setChilliContent(text))
-      .catch(error => console.error('Error loading boats-chilli.md:', error));
+    fetch("/boats-chilli.md")
+      .then((response) => response.text())
+      .then((text) => setChilliContent(text))
+      .catch((error) => console.error("Error loading boats-chilli.md:", error));
 
-    fetch('/boats-cuba.md')
-      .then(response => response.text())
-      .then(text => setCubaContent(text))
-      .catch(error => console.error('Error loading boats-cuba.md:', error));
+    fetch("/boats-cuba.md")
+      .then((response) => response.text())
+      .then((text) => setCubaContent(text))
+      .catch((error) => console.error("Error loading boats-cuba.md:", error));
   }, []);
 
   const handleImageClick = (src, alt) => {
@@ -41,37 +41,63 @@ export default function Boats() {
 
   const customComponents = {
     table: ({ children, ...props }) => (
-      <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-        <table {...props} style={{ maxWidth: '600px', width: '100%', borderCollapse: 'collapse' }}>
+      <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+        <table
+          {...props}
+          style={{
+            maxWidth: "600px",
+            width: "100%",
+            borderCollapse: "collapse",
+          }}
+        >
           {children}
         </table>
       </Box>
     ),
     h1: ({ children, ...props }) => (
-      <Typography variant="h1" sx={{ textAlign: 'center', color: 'primary.main', fontWeight: 500, mb: 2 }} {...props}>
+      <Typography
+        variant="h1"
+        sx={{
+          textAlign: "center",
+          color: "primary.main",
+          fontWeight: 500,
+          mb: 2,
+        }}
+        {...props}
+      >
         {children}
       </Typography>
     ),
     h2: ({ children, ...props }) => (
-      <Typography variant="h2" sx={{ textAlign: 'center', color: 'primary.main', fontWeight: 500, mb: 2, fontSize: '2.5rem' }} {...props}>
+      <Typography
+        variant="h2"
+        sx={{
+          textAlign: "center",
+          color: "primary.main",
+          fontWeight: 500,
+          mb: 2,
+          fontSize: "2.5rem",
+        }}
+        {...props}
+      >
         {children}
       </Typography>
     ),
     img: ({ src, alt, ...props }) => (
-      <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
         <Box
           component="img"
           src={src}
           alt={alt}
           sx={{
-            width: '250px',
-            height: '200px',
-            objectFit: 'contain',
-            cursor: 'pointer',
+            width: "250px",
+            height: "200px",
+            objectFit: "contain",
+            cursor: "pointer",
             borderRadius: 1,
             boxShadow: 2,
-            backgroundColor: 'grey.100',
-            '&:hover': { opacity: 0.8 }
+            backgroundColor: "grey.100",
+            "&:hover": { opacity: 0.8 },
           }}
           onClick={() => handleImageClick(src, alt)}
           {...props}
@@ -82,39 +108,48 @@ export default function Boats() {
 
   return (
     <>
-      <Typography variant="h2" color="primary.main" sx={{ mb: 4, textAlign: 'center', fontWeight: 500, px: { xs: 2, sm: 3, md: 4 } }}>
+      <Typography
+        variant="h2"
+        color="primary.main"
+        sx={{
+          mb: 4,
+          textAlign: "center",
+          fontWeight: 500,
+          px: { xs: 2, sm: 3, md: 4 },
+        }}
+      >
         Naše lodě
       </Typography>
 
       <Box
         sx={{
-          display: 'grid',
+          display: "grid",
           gridTemplateColumns: {
-            xs: '1fr', // single column on mobile
-            md: '1fr 1fr' // two columns on medium screens and up
+            xs: "1fr", // single column on mobile
+            md: "1fr 1fr", // two columns on medium screens and up
           },
           gap: 4,
           px: { xs: 2, sm: 3, md: 4 }, // Add horizontal padding
-          '& h1, & h2, & h3, & h4, & h5, & h6': {
-            color: 'primary.main',
+          "& h1, & h2, & h3, & h4, & h5, & h6": {
+            color: "primary.main",
             fontWeight: 500,
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word'
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
           },
-          '& p': {
-            color: 'text.primary',
+          "& p": {
+            color: "text.primary",
             fontWeight: 300,
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word'
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
           },
-          '& ul, & ol': {
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word'
+          "& ul, & ol": {
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
           },
-          '& li': {
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word'
-          }
+          "& li": {
+            wordBreak: "break-word",
+            overflowWrap: "break-word",
+          },
         }}
       >
         {/* Chilli Section */}
@@ -123,7 +158,7 @@ export default function Boats() {
             remarkPlugins={[remarkGfm]}
             components={customComponents}
           >
-            {chilliContent || 'Načítám obsah...'}
+            {chilliContent || "Načítám obsah..."}
           </ReactMarkdown>
         </Box>
 
@@ -133,7 +168,7 @@ export default function Boats() {
             remarkPlugins={[remarkGfm]}
             components={customComponents}
           >
-            {cubaContent || 'Načítám obsah...'}
+            {cubaContent || "Načítám obsah..."}
           </ReactMarkdown>
         </Box>
       </Box>
@@ -143,24 +178,24 @@ export default function Boats() {
         onClose={handleCloseDialog}
         fullScreen
         sx={{
-          '& .MuiDialog-paper': {
-            backgroundColor: 'black',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }
+          "& .MuiDialog-paper": {
+            backgroundColor: "black",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          },
         }}
       >
         <IconButton
           onClick={handleCloseDialog}
           sx={{
-            position: 'absolute',
+            position: "absolute",
             right: 16,
             top: 16,
-            bgcolor: '#1F2646',
-            color: 'white',
-            '&:hover': { bgcolor: '#6396C1' },
-            zIndex: 1
+            bgcolor: "#1F2646",
+            color: "white",
+            "&:hover": { bgcolor: "#6396C1" },
+            zIndex: 1,
           }}
         >
           <CloseIcon />
@@ -168,17 +203,17 @@ export default function Boats() {
         {selectedImage && (
           <>
             {imageLoading && (
-              <Typography sx={{ color: 'white' }}>Načítám obrázek…</Typography>
+              <Typography sx={{ color: "white" }}>Načítám obrázek…</Typography>
             )}
             <Box
               component="img"
               src={selectedImage.src}
               alt={selectedImage.alt}
               sx={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                objectFit: 'contain',
-                display: imageLoading ? 'none' : 'block'
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+                display: imageLoading ? "none" : "block",
               }}
             />
           </>

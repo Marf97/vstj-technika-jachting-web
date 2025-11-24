@@ -26,37 +26,101 @@
  * directly to frontend, eliminating server-side proxying entirely.
  */
 
-class Gallery {
+class Gallery
+{
     private GraphAPI $graphAPI;
+    private bool $lastCacheHit = false;
 
-    public function __construct(GraphAPI $graphAPI) {
+    public function __construct(GraphAPI $graphAPI)
+    {
         $this->graphAPI = $graphAPI;
     }
 
-    public function getAvailableYears(): array {
+    /**
+     * Check if cached images exist and are still valid
+     */
+    private function getCachedImages(?string $year): ?array
+    {
+        $cacheKey = ($year ?? 'all') . '_' . md5($year ?? 'all');
+        $cacheFile = sys_get_temp_dir() . '/gallery_cache_' . $cacheKey . '.json';
+
+        if (!file_exists($cacheFile)) {
+            return null;
+        }
+
+        $cacheData = json_decode(file_get_contents($cacheFile), true);
+        if (!$cacheData || !isset($cacheData['expires']) || time() > $cacheData['expires']) {
+            return null;
+        }
+
+        $this->lastCacheHit = true;
+        return $cacheData['images'];
+    }
+
+    /**
+     * Cache images to file system
+     */
+    private function cacheImages(?string $year, array $images): void
+    {
+        $cacheKey = ($year ?? 'all') . '_' . md5($year ?? 'all');
+        $cacheFile = sys_get_temp_dir() . '/gallery_cache_' . $cacheKey . '.json';
+
+        $cacheData = [
+            'expires' => time() + Config::GALLERY_CACHE_TIME,
+            'cached_at' => time(),
+            'images' => $images
+        ];
+
+        @file_put_contents($cacheFile, json_encode($cacheData));
+        @chmod($cacheFile, 0600);
+    }
+
+    /**
+     * Check if last getImages() call was a cache hit
+     */
+    public function wasLastCacheHit(): bool
+    {
+        return $this->lastCacheHit;
+    }
+
+    public function getAvailableYears(): array
+    {
         $siteId = $this->graphAPI->getSiteId();
         $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::GALLERY_PATH . ":/children?\$select=id,name,folder";
 
         $folderData = $this->graphAPI->callAPI($folderUrl);
 
         // Filter for year folders (numeric names like 2025, 2024, etc.)
-        $yearFolders = array_filter($folderData['value'], function($item) {
+        $yearFolders = array_filter($folderData['value'], function ($item) {
             return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
         });
 
         // Sort years descending (newest first)
-        usort($yearFolders, function($a, $b) {
+        usort($yearFolders, function ($a, $b) {
             return intval($b['name']) - intval($a['name']);
         });
 
-        return array_map(function($item) {
+        return array_map(function ($item) {
             return $item['name'];
         }, $yearFolders);
     }
 
-    public function getImages(?string $year, int $top, int $skip): array {
-        $siteId = $this->graphAPI->getSiteId();
-        $allImages = $this->collectImages($year);
+    public function getImages(?string $year, int $top, int $skip): array
+    {
+        // Check cache first
+        $this->lastCacheHit = false;
+        $cachedImages = $this->getCachedImages($year);
+
+        if ($cachedImages !== null) {
+            // Use cached data
+            $allImages = $cachedImages;
+        } else {
+            // Fetch fresh data from SharePoint
+            $allImages = $this->collectImages($year);
+
+            // Cache the complete result
+            $this->cacheImages($year, $allImages);
+        }
 
         // Apply pagination
         $paginatedImages = array_slice($allImages, $skip, $top ?: null);
@@ -69,7 +133,8 @@ class Gallery {
         ];
     }
 
-    private function collectImages(?string $year): array {
+    private function collectImages(?string $year): array
+    {
         $siteId = $this->graphAPI->getSiteId();
         $allImages = [];
 
@@ -84,7 +149,7 @@ class Gallery {
                 $images = $this->filterImages($folderData['value']);
 
                 // Sort images by creation date descending
-                usort($images, function($a, $b) {
+                usort($images, function ($a, $b) {
                     $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
                     $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
                     return $bTime - $aTime;
@@ -109,7 +174,7 @@ class Gallery {
                     $images = $this->filterImages($yearFolderData['value']);
 
                     // Sort images within year and add year metadata
-                    usort($images, function($a, $b) {
+                    usort($images, function ($a, $b) {
                         $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
                         $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
                         return $bTime - $aTime;
@@ -121,7 +186,7 @@ class Gallery {
 
                     $allImages = array_merge($allImages, $images);
                 } catch (Exception $e) {
-                                        continue;
+                    continue;
                 }
             }
         }
@@ -129,33 +194,36 @@ class Gallery {
         return $allImages;
     }
 
-    private function getYearFolders(): array {
+    private function getYearFolders(): array
+    {
         $siteId = $this->graphAPI->getSiteId();
         $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::GALLERY_PATH . ":/children?\$select=id,name,folder";
 
         $folderData = $this->graphAPI->callAPI($folderUrl);
 
-        $yearFolders = array_filter($folderData['value'], function($item) {
+        $yearFolders = array_filter($folderData['value'], function ($item) {
             return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
         });
 
-        usort($yearFolders, function($a, $b) {
+        usort($yearFolders, function ($a, $b) {
             return intval($b['name']) - intval($a['name']);
         });
 
         return $yearFolders;
     }
 
-    private function filterImages(array $items): array {
-        return array_filter($items, function($item) {
+    private function filterImages(array $items): array
+    {
+        return array_filter($items, function ($item) {
             return isset($item['file']) &&
-                   isset($item['file']['mimeType']) &&
-                   strpos($item['file']['mimeType'], 'image/') === 0;
+                isset($item['file']['mimeType']) &&
+                strpos($item['file']['mimeType'], 'image/') === 0;
         });
     }
 
-    public function getImageContent(string $itemId): array {
-        
+    public function getImageContent(string $itemId): array
+    {
+
         $siteId = $this->graphAPI->getSiteId();
 
         // Check for cached image (cache for 1 hour)
@@ -163,7 +231,7 @@ class Gallery {
         if (file_exists($imageCacheFile)) {
             $cacheData = json_decode(@file_get_contents($imageCacheFile), true);
             if ($cacheData && isset($cacheData['expires']) && time() < $cacheData['expires']) {
-                                return $cacheData;
+                return $cacheData;
             }
         }
 
@@ -171,17 +239,17 @@ class Gallery {
         $metadataUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}?\$select=id,name,@microsoft.graph.downloadUrl,file";
         try {
             $metadata = $this->graphAPI->callAPI($metadataUrl);
-                        $downloadUrl = $metadata['@microsoft.graph.downloadUrl'] ?? null;
+            $downloadUrl = $metadata['@microsoft.graph.downloadUrl'] ?? null;
             $mimeType = $metadata['file']['mimeType'] ?? 'image/jpeg';
             if (!$downloadUrl) {
-                                $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
+                $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
             }
-                    } catch (Exception $e) {
-                        $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
+        } catch (Exception $e) {
+            $downloadUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$itemId}/content";
             $mimeType = 'image/jpeg'; // fallback
-                    }
+        }
 
-        
+
         // Fetch image content using curl with redirect following
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $downloadUrl);
@@ -203,13 +271,13 @@ class Gallery {
 
         curl_close($ch);
 
-                
+
         if ($httpCode < 200 || $httpCode >= 300 || $imageData === false) {
             $responseBody = substr($imageData ?: '', 0, 500); // Log first 500 chars of response if available
-            
+
             // Special handling for auth redirects (redirect to login instead of download)
             if ($redirectCount > 0 && strpos($effectiveUrl, 'login.microsoftonline.com') !== false) {
-                            }
+            }
 
             throw new Exception("Failed to fetch image content: HTTP {$httpCode}, Error: {$error}");
         }
@@ -224,7 +292,7 @@ class Gallery {
             'mimeType' => $mimeType
         ];
 
-        
+
         // Cache the result (data and mimeType) for 1 hour
         $cacheData = $result;
         $cacheData['expires'] = time() + 3600;

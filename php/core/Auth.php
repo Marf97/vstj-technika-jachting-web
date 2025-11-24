@@ -1,12 +1,14 @@
 <?php
 // VSTJ Technika Jachting Web - Authentication Class
 
-class Auth {
+class Auth
+{
     private string $clientId;
     private string $tenantId;
     private string $clientSecret;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->clientId = getenv('CLIENT_ID');
         $this->tenantId = getenv('TENANT_ID');
         $this->clientSecret = getenv('CLIENT_SECRET');
@@ -16,11 +18,13 @@ class Auth {
         }
     }
 
-    public function getAccessToken(): string {
+    public function getAccessToken(): string
+    {
         return $this->getCachedAccessToken();
     }
 
-    private function getCachedAccessToken(): string {
+    private function getCachedAccessToken(): string
+    {
         $cacheFile = sys_get_temp_dir() . '/msal_token_cache.enc';
         $encryptionKey = hash('sha256', $this->clientSecret . $this->tenantId);
 
@@ -51,7 +55,8 @@ class Auth {
         return $this->fetchNewToken($cacheFile, $encryptionKey);
     }
 
-    private function fetchNewToken(string $cacheFile, string $encryptionKey): string {
+    private function fetchNewToken(string $cacheFile, string $encryptionKey): string
+    {
         $tokenUrl = "https://login.microsoftonline.com/{$this->tenantId}/oauth2/v2.0/token";
 
         $postData = http_build_query([
@@ -101,17 +106,18 @@ class Auth {
         return $token;
     }
 
-    private function encryptToken(string $data, string $key): string {
+    private function encryptToken(string $data, string $key): string
+    {
         $iv = openssl_random_pseudo_bytes(16);
         $encrypted = openssl_encrypt($data, 'AES-256-CBC', $key, 0, $iv);
         return base64_encode($iv . $encrypted);
     }
 
-    private function decryptToken(string $encryptedData, string $key): string {
+    private function decryptToken(string $encryptedData, string $key): string
+    {
         $data = base64_decode($encryptedData);
         $iv = substr($data, 0, 16);
         $encrypted = substr($data, 16);
         return openssl_decrypt($encrypted, 'AES-256-CBC', $key, 0, $iv);
     }
 }
-?>
