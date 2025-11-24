@@ -1,14 +1,74 @@
 <?php
 // VSTJ Technika Jachting Web - News Module
 
-class News {
+class News
+{
     private GraphAPI $graphAPI;
+    private bool $lastCacheHit = false;
 
-    public function __construct(GraphAPI $graphAPI) {
+    public function __construct(GraphAPI $graphAPI)
+    {
         $this->graphAPI = $graphAPI;
     }
 
-    public function getAvailableYears(): array {
+    /**
+     * Check if cached articles exist and are still valid
+     * @param string|null $year Year filter or null for all articles
+     * @return array|null Cached articles or null if cache miss
+     */
+    private function getCachedArticles(?string $year): ?array
+    {
+        $cacheKey = $year ?? 'all';
+        $cacheFile = sys_get_temp_dir() . '/news_cache_' . $cacheKey . '_' . md5($cacheKey) . '.json';
+
+        if (!file_exists($cacheFile)) {
+            return null;
+        }
+
+        $cacheData = json_decode(@file_get_contents($cacheFile), true);
+        if (!$cacheData || !isset($cacheData['expires']) || !isset($cacheData['articles'])) {
+            return null;
+        }
+
+        // Check if cache has expired
+        if (time() >= $cacheData['expires']) {
+            return null;
+        }
+
+        return $cacheData['articles'];
+    }
+
+    /**
+     * Cache articles list with expiry timestamp
+     * @param string|null $year Year filter or null for all articles
+     * @param array $articles Articles array to cache
+     */
+    private function cacheArticles(?string $year, array $articles): void
+    {
+        $cacheKey = $year ?? 'all';
+        $cacheFile = sys_get_temp_dir() . '/news_cache_' . $cacheKey . '_' . md5($cacheKey) . '.json';
+
+        $cacheData = [
+            'expires' => time() + Config::NEWS_CACHE_TIME,
+            'cached_at' => time(),
+            'articles' => $articles
+        ];
+
+        @file_put_contents($cacheFile, json_encode($cacheData));
+        @chmod($cacheFile, 0600);
+    }
+
+    /**
+     * Get cache hit status from last getArticles() call
+     * @return bool True if last call was a cache hit
+     */
+    public function wasLastCacheHit(): bool
+    {
+        return $this->lastCacheHit;
+    }
+
+    public function getAvailableYears(): array
+    {
         $siteId = $this->graphAPI->getSiteId();
         $folderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::NEWS_PATH . ":/children?\$select=id,name,folder";
 
@@ -16,24 +76,34 @@ class News {
             $folderData = $this->graphAPI->callAPI($folderUrl);
 
             // Filter for year folders (numeric names like 2025, 2024, etc.)
-            $yearFolders = array_filter($folderData['value'], function($item) {
+            $yearFolders = array_filter($folderData['value'], function ($item) {
                 return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
             });
 
             // Sort years descending (newest first)
-            usort($yearFolders, function($a, $b) {
+            usort($yearFolders, function ($a, $b) {
                 return intval($b['name']) - intval($a['name']);
             });
 
-            return array_map(function($item) {
+            return array_map(function ($item) {
                 return $item['name'];
             }, $yearFolders);
         } catch (Exception $e) {
-                        return [];
+            return [];
         }
     }
 
-    public function getArticles(?string $year): array {
+    public function getArticles(?string $year): array
+    {
+        // Check cache first
+        $cachedArticles = $this->getCachedArticles($year);
+        if ($cachedArticles !== null) {
+            $this->lastCacheHit = true;
+            return $cachedArticles;
+        }
+
+        // Cache miss - fetch from SharePoint
+        $this->lastCacheHit = false;
         $siteId = $this->graphAPI->getSiteId();
         $articles = [];
 
@@ -45,18 +115,18 @@ class News {
                 $yearFolderData = $this->graphAPI->callAPI($yearFolderUrl);
 
                 // Filter for folders (each article is a folder containing markdown and images)
-                $articleFolders = array_filter($yearFolderData['value'], function($item) {
+                $articleFolders = array_filter($yearFolderData['value'], function ($item) {
                     return isset($item['folder']);
                 });
 
                 // Sort articles by creation date descending (newest first)
-                usort($articleFolders, function($a, $b) {
+                usort($articleFolders, function ($a, $b) {
                     $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
                     $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
                     return $bTime - $aTime;
                 });
 
-                $articles = array_map(function($item) use ($year) {
+                $articles = array_map(function ($item) use ($year) {
                     $thumbnail = $this->getArticleThumbnailUrl($item['id']);
                     return [
                         'id' => $item['id'],
@@ -68,7 +138,7 @@ class News {
                     ];
                 }, $articleFolders);
             } catch (Exception $e) {
-                                $articles = [];
+                $articles = [];
             }
         } else {
             // List all articles across all years
@@ -78,12 +148,12 @@ class News {
                 $newsFolderData = $this->graphAPI->callAPI($newsFolderUrl);
 
                 // Get year folders
-                $yearFolders = array_filter($newsFolderData['value'], function($item) {
+                $yearFolders = array_filter($newsFolderData['value'], function ($item) {
                     return isset($item['folder']) && is_numeric($item['name']) && strlen($item['name']) === 4;
                 });
 
                 // Sort years descending
-                usort($yearFolders, function($a, $b) {
+                usort($yearFolders, function ($a, $b) {
                     return intval($b['name']) - intval($a['name']);
                 });
 
@@ -95,18 +165,18 @@ class News {
                     try {
                         $yearFolderData = $this->graphAPI->callAPI($yearFolderUrl);
 
-                        $articleFolders = array_filter($yearFolderData['value'], function($item) {
+                        $articleFolders = array_filter($yearFolderData['value'], function ($item) {
                             return isset($item['folder']);
                         });
 
                         // Sort articles within year
-                        usort($articleFolders, function($a, $b) {
+                        usort($articleFolders, function ($a, $b) {
                             $aTime = isset($a['createdDateTime']) ? strtotime($a['createdDateTime']) : 0;
                             $bTime = isset($b['createdDateTime']) ? strtotime($b['createdDateTime']) : 0;
                             return $bTime - $aTime;
                         });
 
-                        $yearArticles = array_map(function($item) use ($yearName) {
+                        $yearArticles = array_map(function ($item) use ($yearName) {
                             $thumbnail = $this->getArticleThumbnailUrl($item['id']);
                             return [
                                 'id' => $item['id'],
@@ -120,13 +190,16 @@ class News {
 
                         $articles = array_merge($articles, $yearArticles);
                     } catch (Exception $e) {
-                                                continue;
+                        continue;
                     }
                 }
             } catch (Exception $e) {
-                                $articles = [];
+                $articles = [];
             }
         }
+
+        // Cache the results before returning
+        $this->cacheArticles($year, $articles);
 
         return $articles;
     }
@@ -135,7 +208,8 @@ class News {
      * Get thumbnail URL for a specific article
      * Looks for thumbnail.jpg in the article folder
      */
-    private function getArticleThumbnailUrl(string $articleFolderId): ?string {
+    private function getArticleThumbnailUrl(string $articleFolderId): ?string
+    {
         $siteId = $this->graphAPI->getSiteId();
 
         try {
@@ -162,47 +236,47 @@ class News {
             $metadata = $this->graphAPI->callAPI($metadataUrl);
 
             return $metadata['@microsoft.graph.downloadUrl'] ?? null;
-
         } catch (Exception $e) {
-                        return null;
+            return null;
         }
     }
 
-    public function getArticle(string $title, string $year): ?array {
+    public function getArticle(string $title, string $year): ?array
+    {
         $siteId = $this->graphAPI->getSiteId();
 
-        
+
         // First, find the correct article folder name by listing all articles in the year
         $yearFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::NEWS_PATH . "/{$year}:/children?\$select=id,name,folder";
 
         try {
             $yearFolderData = $this->graphAPI->callAPI($yearFolderUrl);
-            
+
             // Debug: log all folder names
             foreach ($yearFolderData['value'] as $item) {
                 if (isset($item['folder'])) {
-                                    }
+                }
             }
 
             // Find the folder with the matching name (case-insensitive comparison)
             $articleFolder = null;
             foreach ($yearFolderData['value'] as $item) {
                 if (isset($item['folder'])) {
-                                        // Try exact match first
+                    // Try exact match first
                     if ($item['name'] === $title) {
                         $articleFolder = $item;
-                                                break;
+                        break;
                     }
                     // Fallback to case-insensitive match
                     if (strtolower($item['name']) === strtolower($title)) {
                         $articleFolder = $item;
-                                                break;
+                        break;
                     }
                 }
             }
 
             if (!$articleFolder) {
-                                return null;
+                return null;
             }
 
             $articleFolderId = $articleFolder['id'];
@@ -211,25 +285,25 @@ class News {
             $articleFolderUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$articleFolderId}/children?\$select=id,name,file,mimeType,size,createdDateTime,lastModifiedDateTime,@microsoft.graph.downloadUrl";
             $articleFolderData = $this->graphAPI->callAPI($articleFolderUrl);
 
-            
+
             $markdownFile = null;
             $images = [];
 
             foreach ($articleFolderData['value'] as $item) {
                 if (isset($item['file'])) {
                     $mimeType = $item['file']['mimeType'] ?? $item['mimeType'] ?? null;
-                                        if ($this->isMarkdownFile($item)) {
+                    if ($this->isMarkdownFile($item)) {
                         $markdownFile = $item;
-                                            } elseif ($this->isImageFile($item)) {
+                    } elseif ($this->isImageFile($item)) {
                         $images[] = $item;
-                                            }
+                    }
                 }
             }
 
             if ($markdownFile) {
                 // Use the same approach as image fetching - get content via Graph API
                 $markdownId = $markdownFile['id'];
-                
+
                 try {
                     $siteId = $this->graphAPI->getSiteId();
                     $contentUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/items/{$markdownId}/content";
@@ -253,9 +327,9 @@ class News {
                     $error = curl_error($ch);
                     curl_close($ch);
 
-                    
+
                     if ($httpCode >= 200 && $httpCode < 300 && $markdownContent !== false) {
-                                                return [
+                        return [
                             'id' => $markdownFile['id'],
                             'title' => $articleFolder['name'],
                             'year' => $year,
@@ -266,26 +340,27 @@ class News {
                         ];
                     } else {
                         $responseBody = substr($markdownContent ?: '', 0, 500);
-                        
+
                         // Special handling for auth redirects
                         if ($redirectCount > 0 && strpos($effectiveUrl, 'login.microsoftonline.com') !== false) {
-                                                    }
+                        }
 
                         // Warn if too many redirects
                         if ($redirectCount >= 5) {
-                                                    }
+                        }
                     }
                 } catch (Exception $e) {
-                                    }
+                }
             } else {
-                            }
+            }
         } catch (Exception $e) {
-                    }
+        }
 
         return null;
     }
 
-    public function getArticleExcerpt(string $year, string $articleName): ?string {
+    public function getArticleExcerpt(string $year, string $articleName): ?string
+    {
         $article = $this->getArticle($articleName, $year);
 
         if (!$article || empty($article['content'])) {
@@ -296,7 +371,8 @@ class News {
     }
 
     // Debug method to check if news folder exists
-    public function debugNewsStructure(): array {
+    public function debugNewsStructure(): array
+    {
         $siteId = $this->graphAPI->getSiteId();
 
         try {
@@ -313,7 +389,7 @@ class News {
             $yearsUrl = "https://graph.microsoft.com/v1.0/sites/{$siteId}/drive/root:/" . Config::NEWS_PATH . ":/children?\$select=id,name,folder";
             $yearsData = $this->graphAPI->callAPI($yearsUrl);
 
-            $result['years'] = array_map(function($item) {
+            $result['years'] = array_map(function ($item) {
                 return [
                     'name' => $item['name'],
                     'id' => $item['id'],
@@ -328,7 +404,7 @@ class News {
                 $articlesData = $this->graphAPI->callAPI($articlesUrl);
 
                 $result['sample_year'] = $firstYear;
-                $result['articles_in_year'] = array_map(function($item) {
+                $result['articles_in_year'] = array_map(function ($item) {
                     return [
                         'name' => $item['name'],
                         'id' => $item['id'],
@@ -346,22 +422,26 @@ class News {
         }
     }
 
-    private function isMarkdownFile(array $item): bool {
+    private function isMarkdownFile(array $item): bool
+    {
         $mimeType = $item['file']['mimeType'] ?? $item['mimeType'] ?? '';
         return strpos($mimeType, 'text/markdown') !== false ||
-                pathinfo($item['name'], PATHINFO_EXTENSION) === 'md';
+            pathinfo($item['name'], PATHINFO_EXTENSION) === 'md';
     }
 
-    private function isImageFile(array $item): bool {
+    private function isImageFile(array $item): bool
+    {
         $mimeType = $item['file']['mimeType'] ?? $item['mimeType'] ?? '';
         return strpos($mimeType, 'image/') === 0;
     }
 
-    private function fetchFileContent(string $url): string {
+    private function fetchFileContent(string $url): string
+    {
         return file_get_contents($url);
     }
 
-    private function createExcerptFromMarkdown(string $markdown, int $maxLength = 220): string {
+    private function createExcerptFromMarkdown(string $markdown, int $maxLength = 220): string
+    {
         // odstranit obrázky ![alt](url)
         $text = preg_replace('/!\[.*?\]\(.*?\)/', '', $markdown);
 
@@ -388,6 +468,4 @@ class News {
 
         return $short . '…';
     }
-
 }
-?>

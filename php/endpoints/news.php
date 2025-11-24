@@ -39,9 +39,18 @@ try {
 
         case 'list_articles':
             $year = $_GET['year'] ?? null;
+            $articles = $news->getArticles($year);
+
+            // Add cache status headers
+            if ($news->wasLastCacheHit()) {
+                header('X-News-Cache: HIT');
+            } else {
+                header('X-News-Cache: MISS');
+            }
+
             echo json_encode([
                 'success' => true,
-                'articles' => $news->getArticles($year)
+                'articles' => $articles
             ]);
             break;
 
@@ -82,7 +91,7 @@ try {
                 ]);
                 break;
             }
-            
+
             $excerpt = $news->getArticleExcerpt($year, $title);
 
             echo json_encode(['excerpt' => $excerpt]);
@@ -101,12 +110,10 @@ try {
             ]);
             break;
     }
-
 } catch (Exception $e) {
-        http_response_code(500);
+    http_response_code(500);
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage()
     ]);
 }
-?>
