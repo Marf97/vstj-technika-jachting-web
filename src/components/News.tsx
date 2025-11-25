@@ -68,8 +68,10 @@ const MarkdownImage = ({
       style={{
         maxWidth: "100%",
         height: "auto",
-        borderRadius: 1,
-        margin: "8px 0",
+        maxHeight: "500px",
+        borderRadius: 5,
+        display: "block",
+        margin: "8px auto",
       }}
     />
   );
@@ -592,6 +594,13 @@ export default function News() {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
+                a: ({ node, ...props }) => {
+                  const href = props.href ?? '';
+                  const isFile = /\.(pdf|zip|docx?|xlsx?|pptx?)$/i.test(href);
+
+                  // Pro soubory přidáme download, jinak se chová jako normální odkaz
+                  return <a {...props} {...(isFile ? { download: '' } : {})} />;
+                },
                 img: ({ src, alt }) => (
                   <MarkdownImage
                     src={src}
