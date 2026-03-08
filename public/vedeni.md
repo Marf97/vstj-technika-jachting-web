@@ -8,6 +8,6 @@
 
 **Členové:**    Petr Zloch, Jan Konrád, Barbora Nunvářová, Martin Němec
 
-Kontaktujte nás na: **vybor.jachting@technikapraha.onmicrosoft.com** 
+Kontaktujte nás na: **jachting@technika-praha.cz** 
  
  
