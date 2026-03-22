@@ -7,6 +7,9 @@ services:
       - ./php/core:/var/www/html/php/core
       - ./php/modules:/var/www/html/php/modules
       - ./php/endpoints:/var/www/html/php/endpoints
+      - ./.env.php:/var/www/html/.env.php:ro
+      - ./.env.php.development:/var/www/html/.env.php.development:ro
+      - ./.env.php.production:/var/www/html/.env.php.production:ro
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
     env_file:

@@ -12,11 +12,14 @@ export default defineConfig({
         const phpFiles = [
           'php/endpoints/news.php',
           'php/endpoints/gallery.php',
+          'php/endpoints/auth.php',
+          'php/endpoints/member-calendar.php',
           'php/modules/News.php',
           'php/modules/Gallery.php',
           'php/modules/Router.php',
           'php/core/Config.php',
           'php/core/Auth.php',
+          'php/core/MemberAuth.php',
           'php/core/GraphAPI.php',
         ]
 
