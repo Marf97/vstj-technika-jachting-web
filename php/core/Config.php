@@ -27,7 +27,8 @@ class Config
 
     /**
      * Load environment configuration
-     * Tries to load .env.php or falls back to .env.php.development
+     * Loads the base .env.php runtime configuration first, then overlays
+     * non-sensitive environment-specific settings from .env.php.<environment>.
      */
     private static function loadEnv()
     {
@@ -35,28 +36,73 @@ class Config
             return;
         }
 
-        $rootDir = dirname(__DIR__, 2); // Go up two levels from php/core to project root
+        $rootDir = dirname(__DIR__, 2);
+        $baseConfigFile = $rootDir . '/.env.php';
 
-        // Try to load .env.php first (for deployment)
-        $envFile = $rootDir . '/.env.php';
-        if (!file_exists($envFile)) {
-            // Fall back to development environment
-            $envFile = $rootDir . '/.env.php.development';
+        if (file_exists($baseConfigFile)) {
+            self::applyConfig(self::parseConfigFile($baseConfigFile));
         }
 
-        if (file_exists($envFile)) {
-            // Load the PHP file which returns an array
-            $config = require $envFile;
+        $environment = getenv('ENVIRONMENT');
+        if ($environment === false || $environment === '') {
+            $environment = 'development';
+        }
 
-            if (is_array($config)) {
-                // Store each config value in environment
-                foreach ($config as $key => $value) {
-                    putenv("$key=$value");
-                }
-            }
+        $environmentConfigFile = $rootDir . '/.env.php.' . $environment;
+        if (file_exists($environmentConfigFile)) {
+            self::applyConfig(self::parseConfigFile($environmentConfigFile));
         }
 
         self::$envLoaded = true;
+    }
+
+    private static function parseConfigFile(string $file): array
+    {
+        $contents = @file_get_contents($file);
+        if ($contents === false) {
+            return [];
+        }
+
+        $trimmed = ltrim($contents);
+        if (str_starts_with($trimmed, '<?php')) {
+            $config = require $file;
+            return is_array($config) ? $config : [];
+        }
+
+        $config = [];
+        $lines = preg_split('/\r\n|\r|\n/', $contents);
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#')) {
+                continue;
+            }
+
+            $separatorPos = strpos($line, '=');
+            if ($separatorPos === false) {
+                continue;
+            }
+
+            $key = trim(substr($line, 0, $separatorPos));
+            $value = trim(substr($line, $separatorPos + 1));
+
+            if ($key === '') {
+                continue;
+            }
+
+            $config[$key] = trim($value, "\"'");
+        }
+
+        return $config;
+    }
+
+    private static function applyConfig(array $config): void
+    {
+        foreach ($config as $key => $value) {
+            putenv($key . '=' . $value);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
     }
 
     /**

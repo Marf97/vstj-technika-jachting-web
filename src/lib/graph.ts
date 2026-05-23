@@ -201,3 +201,29 @@ export function getArticleImageUrl(proxyUrl: string, itemId: string) {
   const galleryUrl = proxyUrl.replace("/news.php", "/gallery.php");
   return `${galleryUrl}?id=${encodeURIComponent(itemId)}`;
 }
+
+export async function fetchMemberCalendar(
+  calendarUrl: string,
+  start: string,
+  end: string
+): Promise<any[]> {
+  const url = new URL(calendarUrl);
+  url.searchParams.set("start", start);
+  url.searchParams.set("end", end);
+
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Calendar error ${response.status}: ${error}`);
+  }
+
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(`Calendar returned error: ${data.error}`);
+  }
+
+  return data.events as any[];
+}

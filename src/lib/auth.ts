@@ -1,33 +1,149 @@
-const clientId = import.meta.env.VITE_AAD_CLIENT_ID as string;
-const tenantId = import.meta.env.VITE_AAD_TENANT_ID as string;
-const clientSecret = import.meta.env.VITE_AAD_CLIENT_SECRET as string;
+import React, {
+  useCallback,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-// App-only scopes for Microsoft Graph
-export const GRAPH_SCOPES = ["https://graph.microsoft.com/.default"];
+type MemberSession = {
+  authenticated: boolean;
+  memberEmail: string | null;
+  displayName: string | null;
+};
 
-export async function acquireTokenForApp(): Promise<string> {
-  const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+type MemberAuthContextValue = {
+  session: MemberSession;
+  loading: boolean;
+  error: string | null;
+  refreshSession: () => Promise<void>;
+  login: (returnTo?: string) => void;
+  logout: (returnTo?: string) => void;
+};
 
-  const body = new URLSearchParams({
-    client_id: clientId,
-    scope: GRAPH_SCOPES[0],
-    client_secret: clientSecret,
-    grant_type: "client_credentials",
-  });
+const defaultSession: MemberSession = {
+  authenticated: false,
+  memberEmail: null,
+  displayName: null,
+};
 
-  const response = await fetch(tokenEndpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: body.toString(),
+let cachedSession: MemberSession | null = null;
+let sessionFetchPromise: Promise<MemberSession> | null = null;
+
+const MemberAuthContext = createContext<MemberAuthContextValue | null>(null);
+const AUTH_ENDPOINT = import.meta.env.VITE_AUTH_PROXY_URL;
+
+function buildAuthUrl(action: string, returnTo?: string) {
+  const url = new URL(AUTH_ENDPOINT);
+  url.searchParams.set("action", action);
+
+  if (returnTo) {
+    url.searchParams.set("returnTo", returnTo);
+  }
+
+  return url.toString();
+}
+
+async function fetchSessionState(): Promise<MemberSession> {
+  if (cachedSession) {
+    return cachedSession;
+  }
+
+  if (sessionFetchPromise) {
+    return sessionFetchPromise;
+  }
+
+  sessionFetchPromise = (async () => {
+  const response = await fetch(buildAuthUrl("session"), {
+    credentials: "include",
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to acquire app token: ${response.status} ${error}`);
+    throw new Error(`Session check failed with status ${response.status}`);
   }
 
   const data = await response.json();
-  return data.access_token as string;
+  if (!data.success) {
+    throw new Error(data.error || "Failed to load session state.");
+  }
+
+    const session = {
+    authenticated: Boolean(data.session?.authenticated),
+    memberEmail: data.session?.memberEmail ?? null,
+    displayName: data.session?.displayName ?? null,
+    };
+
+    cachedSession = session;
+    return session;
+  })();
+
+  try {
+    return await sessionFetchPromise;
+  } finally {
+    sessionFetchPromise = null;
+  }
+}
+
+export function MemberAuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const [session, setSession] = useState<MemberSession>(defaultSession);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      setLoading(true);
+      const nextSession = await fetchSessionState();
+      setSession(nextSession);
+      setError(null);
+    } catch (err: any) {
+      setSession(defaultSession);
+      cachedSession = defaultSession;
+      setError(err.message || "Nepodařilo se načíst stav přihlášení.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
+
+  const value = useMemo<MemberAuthContextValue>(
+    () => ({
+      session,
+      loading,
+      error,
+      refreshSession,
+      login(returnTo?: string) {
+        window.location.href = buildAuthUrl(
+          "login",
+          returnTo || window.location.href
+        );
+      },
+      logout(returnTo?: string) {
+        cachedSession = defaultSession;
+        window.location.href = buildAuthUrl(
+          "logout",
+          returnTo || window.location.origin
+        );
+      },
+    }),
+    [session, loading, error, refreshSession]
+  );
+
+  return React.createElement(MemberAuthContext.Provider, { value }, children);
+}
+
+export function useMemberAuth() {
+  const context = useContext(MemberAuthContext);
+  if (!context) {
+    throw new Error("useMemberAuth must be used inside MemberAuthProvider.");
+  }
+
+  return context;
 }

@@ -1,34 +1,43 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter as Router,
-  Routes,
   Route,
+  Routes,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
 import { ThemeProvider } from "@mui/material/styles";
-import CssBaseline from "@mui/material/CssBaseline";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
-import Header from "./components/Header";
+import CssBaseline from "@mui/material/CssBaseline";
+import Snackbar from "@mui/material/Snackbar";
 import Footer from "./components/Footer";
-import Typography from "@mui/material/Typography";
 import Gallery from "./components/Gallery";
+import Header from "./components/Header";
+import MemberArea from "./components/MemberArea";
 import News from "./components/News";
 import NewsFeed from "./components/NewsFeed";
 import Boats from "./components/Boats";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { MemberAuthProvider } from "./lib/auth";
 import theme from "./theme";
 import "./App.css";
 
-// Main content component that handles routing
 function AppContent() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [onasContent, setOnasContent] = useState("");
-  const [vedeniContent, setVedenicontent] = useState("");
+  const [vedeniContent, setVedeniContent] = useState("");
+  const [authErrorOpen, setAuthErrorOpen] = useState(false);
+
+  const authError = useMemo(() => {
+    const searchParams = new URLSearchParams(location.search);
+    return searchParams.get("authError");
+  }, [location.search]);
 
   useEffect(() => {
-    // Load markdown files only on home page
     if (location.pathname === "/") {
       fetch("/onas.md")
         .then((response) => response.text())
@@ -37,20 +46,41 @@ function AppContent() {
 
       fetch("/vedeni.md")
         .then((response) => response.text())
-        .then((text) => setVedenicontent(text))
+        .then((text) => setVedeniContent(text))
         .catch((error) => console.error("Error loading vedeni.md:", error));
 
-      // Handle scroll to section after navigation
       if (location.state?.scrollTo) {
         setTimeout(() => {
           const element = document.getElementById(location.state.scrollTo);
           if (element) {
             element.scrollIntoView({ behavior: "smooth" });
           }
-        }, 100); // Small delay to ensure content is rendered
+        }, 100);
       }
     }
   }, [location.pathname, location.state]);
+
+  useEffect(() => {
+    if (authError) {
+      setAuthErrorOpen(true);
+    }
+  }, [authError]);
+
+  const handleAuthErrorClose = () => {
+    setAuthErrorOpen(false);
+
+    if (authError) {
+      const searchParams = new URLSearchParams(location.search);
+      searchParams.delete("authError");
+      navigate(
+        {
+          pathname: location.pathname,
+          search: searchParams.toString() ? `?${searchParams.toString()}` : "",
+        },
+        { replace: true }
+      );
+    }
+  };
 
   const scrollToSection = (sectionId) => {
     const element = document.getElementById(sectionId);
@@ -59,7 +89,6 @@ function AppContent() {
     }
   };
 
-  // Force light mode
   const lightTheme = {
     ...theme,
     palette: {
@@ -120,10 +149,27 @@ function AppContent() {
             <Route path="/novinky/:year?" element={<News />} />
             <Route path="/novinky/:year/:article" element={<News />} />
             <Route path="/nase-lode" element={<Boats />} />
+            <Route path="/clenska-sekce" element={<MemberArea />} />
           </Routes>
         </Container>
         <Footer />
       </Box>
+
+      <Snackbar
+        open={authErrorOpen}
+        autoHideDuration={30000}
+        onClose={handleAuthErrorClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleAuthErrorClose}
+          severity="error"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {authError}
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 }
@@ -131,7 +177,9 @@ function AppContent() {
 function App() {
   return (
     <Router>
-      <AppContent />
+      <MemberAuthProvider>
+        <AppContent />
+      </MemberAuthProvider>
     </Router>
   );
 }

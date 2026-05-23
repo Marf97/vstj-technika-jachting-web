@@ -119,9 +119,17 @@ export default function NewsFeed() {
           {articles.length === 0 ? (
             <Typography>Žádné články nebyly nalezeny.</Typography>
           ) : (
-            <Grid container spacing={3}>
+            <Grid
+              container
+              spacing={3}
+              justifyContent={{ xs: "center", md: "flex-start" }}
+            >
               {articles.map((article) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={article.id}>
+                <Grid
+                  size={{ xs: 12, sm: 6, md: 4 }}
+                  key={article.id}
+                  sx={{ display: "flex", justifyContent: "center" }}
+                >
                   <Card
                     sx={{
                       height: 300,
