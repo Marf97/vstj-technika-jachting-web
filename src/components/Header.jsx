@@ -13,7 +13,6 @@ import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
 import MenuIcon from "@mui/icons-material/Menu";
-import NavButton from "./NavButton";
 import { useMemberAuth } from "../lib/auth";
 
 export default function Header({ onNavClick }) {
@@ -65,7 +64,7 @@ export default function Header({ onNavClick }) {
     }
 
     return items;
-  }, [location.pathname, onNavClick, session.authenticated]);
+  }, [location.pathname, onNavClick, session.authenticated, navigate]);
 
   const authItem = session.authenticated
     ? {
@@ -148,25 +147,27 @@ export default function Header({ onNavClick }) {
             </Typography>
           </Box>
 
-          {isMobile ? (
-            <IconButton
-              color="inherit"
-              aria-label="Otevřít menu"
-              onClick={() => setDrawerOpen(true)}
-              sx={{ color: "common.white", mt: 0.5 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-              {navItems.map((item) => (
-                <NavButton key={item.label} onClick={item.action}>
-                  {item.label}
-                </NavButton>
-              ))}
-              <NavButton onClick={authItem.action}>{authItem.label}</NavButton>
-            </Box>
-          )}
+          <IconButton
+            color="inherit"
+            aria-label="Otevřít menu"
+            onClick={() => setDrawerOpen(true)}
+            sx={{
+              color: "common.white",
+              mt: { xs: 0.5, sm: 1.5 },
+              mr: { xs: 0.5, sm: 1.5 },
+              border: "1px solid",
+              borderColor: "rgba(255,255,255,0.35)",
+              bgcolor: "rgba(255,255,255,0.08)",
+              borderRadius: 1.5,
+              px: 1.25,
+              py: 0.75,
+              "&:hover": {
+                bgcolor: "rgba(255,255,255,0.16)",
+              },
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
         </Toolbar>
       </AppBar>
 
