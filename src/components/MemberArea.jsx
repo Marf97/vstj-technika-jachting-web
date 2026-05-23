@@ -1,7 +1,11 @@
 import React from "react";
 import { Alert, Box, Button, Paper, Typography } from "@mui/material";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useMemberAuth } from "../lib/auth";
 import MemberCalendar from "./MemberCalendar";
+
+const NEW_RESERVATION_FORM_URL =
+  "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=D7ZPjqAN20CQiuMyQ7lNTQ61bM0yBdlCvmC_M9kXlkJURFA0ODYzOElUWlRTOFZZVTU0QTlWNzdUUi4u";
 
 export default function MemberArea() {
   const { session, loading, error, login, logout } = useMemberAuth();
@@ -59,9 +63,20 @@ export default function MemberArea() {
             Ověřený účet: {session.memberEmail}
           </Typography>
         )}
-        <Button variant="outlined" onClick={() => logout(window.location.origin)}>
-          Odhlásit
-        </Button>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+          <Button
+            variant="contained"
+            href={NEW_RESERVATION_FORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            endIcon={<OpenInNewIcon fontSize="small" />}
+          >
+            Nová rezervace
+          </Button>
+          <Button variant="outlined" onClick={() => logout(window.location.origin)}>
+            Odhlásit
+          </Button>
+        </Box>
       </Paper>
 
       <MemberCalendar />
