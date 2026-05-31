@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -23,23 +23,22 @@ export default function Header({ onNavClick }) {
   const { session, login, logout } = useMemberAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const handleNavClick = (
-    section,
-    navigateToPath = null,
-    forceNavigate = false
-  ) => {
-    if (
-      navigateToPath &&
-      (forceNavigate || location.pathname !== navigateToPath)
-    ) {
-      navigate(navigateToPath, {
-        state: { scrollTo: section.toLowerCase().replace(/\s+/g, "") },
-      });
-    } else if (onNavClick) {
-      const sectionId = section.toLowerCase().replace(/\s+/g, "");
-      onNavClick(sectionId);
-    }
-  };
+  const handleNavClick = useCallback(
+    (section, navigateToPath = null, forceNavigate = false) => {
+      if (
+        navigateToPath &&
+        (forceNavigate || location.pathname !== navigateToPath)
+      ) {
+        navigate(navigateToPath, {
+          state: { scrollTo: section.toLowerCase().replace(/\s+/g, "") },
+        });
+      } else if (onNavClick) {
+        const sectionId = section.toLowerCase().replace(/\s+/g, "");
+        onNavClick(sectionId);
+      }
+    },
+    [location.pathname, navigate, onNavClick]
+  );
 
   const navItems = useMemo(() => {
     const items = [
@@ -64,7 +63,7 @@ export default function Header({ onNavClick }) {
     }
 
     return items;
-  }, [location.pathname, onNavClick, session.authenticated, navigate]);
+  }, [handleNavClick, session.authenticated, navigate]);
 
   const authItem = session.authenticated
     ? {
@@ -73,7 +72,7 @@ export default function Header({ onNavClick }) {
       }
     : {
         label: "Přihlásit",
-        action: () => login(window.location.href),
+        action: () => login(`${window.location.origin}/clenska-sekce`),
       };
 
   const closeDrawer = () => setDrawerOpen(false);

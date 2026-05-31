@@ -119,6 +119,32 @@ src/
 1. Ensure the SharePoint site has the required image folder at the specified path
 2. Configure appropriate sharing permissions for the image folder
 
+### 3. Member Area and Reservation Calendar
+
+The private member area uses a separate member login flow and server-side Microsoft Graph access to the SharePoint reservation list.
+
+Configure member roles in `.env.php` or environment-specific overrides:
+
+```env
+MEMBER_EMAILS=clen.jachting@technika-praha.cz
+MEMBER_ADMIN_EMAILS=admin.jachting@technika-praha.cz,jachting@technika-praha.cz
+```
+
+`MEMBER_ALLOWED_EMAIL` is still supported as a backward-compatible fallback when no role-based lists are configured.
+
+Calendar list configuration:
+
+```env
+MEMBER_CALENDAR_SITE_HOST=technikapraha.sharepoint.com
+MEMBER_CALENDAR_SITE_PATH=sites/jachting
+MEMBER_CALENDAR_LIST_ID=your-sharepoint-list-id
+MEMBER_CALENDAR_STATE_FIELD=State
+```
+
+Reservation states are stored in SharePoint as `Requested`, `Confirmed`, and `Canceled`. The frontend displays Czech labels, hides canceled reservations from basic members, and shows them to admins. Admins can move reservations between `Requested`, `Confirmed`, and `Canceled` from the reservation detail dialog.
+
+The Azure app used by the PHP backend must have Microsoft Graph permissions that allow reading and updating SharePoint list item fields.
+
 ## 🎨 Design System
 
 ### Brand Colors

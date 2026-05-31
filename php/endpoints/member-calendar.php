@@ -22,7 +22,7 @@ if (in_array($origin, Config::getAllowedOrigins(), true)) {
     header('Access-Control-Allow-Credentials: true');
 }
 
-header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 header('Vary: Origin');
@@ -123,6 +123,11 @@ function getRequiredFieldName(string $envName, string $defaultValue): string
 function getOptionalFieldName(string $envName): ?string
 {
     return getCalendarEnv($envName);
+}
+
+function getStateFieldName(): string
+{
+    return getRequiredFieldName('MEMBER_CALENDAR_STATE_FIELD', 'State');
 }
 
 function formatGraphDateTime(DateTimeImmutable $dateTime): string
@@ -264,12 +269,46 @@ function tryParseDateValue($value): ?DateTimeImmutable
     }
 }
 
-function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable $rangeStart, DateTimeImmutable $rangeEnd): array
+function memberHasCapability(array $member, string $capability): bool
+{
+    $capabilities = $member['capabilities'] ?? [];
+    return is_array($capabilities) && in_array($capability, $capabilities, true);
+}
+
+function getCalendarEventColors(string $state): array
+{
+    return match ($state) {
+        'Requested' => [
+            'backgroundColor' => '#757575',
+            'borderColor' => '#757575',
+            'textColor' => '#ffffff',
+        ],
+        'Confirmed' => [
+            'backgroundColor' => '#2e7d32',
+            'borderColor' => '#2e7d32',
+            'textColor' => '#ffffff',
+        ],
+        'Canceled', 'Rejected' => [
+            'backgroundColor' => '#c62828',
+            'borderColor' => '#c62828',
+            'textColor' => '#ffffff',
+        ],
+        default => [],
+    };
+}
+
+function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable $rangeStart, DateTimeImmutable $rangeEnd, bool $includeCanceled): array
 {
     $events = [];
 
     foreach ($items as $item) {
         $fields = $item['fields'] ?? [];
+        $state = normalizeFieldValue(getItemField($fields, $fieldMap['state'])) ?? 'Requested';
+
+        if (!$includeCanceled && in_array($state, ['Canceled', 'Rejected'], true)) {
+            continue;
+        }
+
         $startDate = tryParseDateValue(getItemField($fields, $fieldMap['start']));
         $endDate = tryParseDateValue(getItemField($fields, $fieldMap['end'])) ?? $startDate;
 
@@ -290,17 +329,20 @@ function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable
             $title = normalizeFieldValue($fields['Title'] ?? null) ?: 'Bez nazvu';
         }
 
-        $events[] = [
+        $event = [
             'id' => (string) ($item['id'] ?? uniqid('member-calendar-', true)),
             'title' => $title,
             'start' => $startDate->format(DateTimeInterface::ATOM),
             'end' => $endDate->format(DateTimeInterface::ATOM),
             'allDay' => normalizeBooleanValue(getItemField($fields, $fieldMap['allDay'])),
             'extendedProps' => [
+                'state' => $state,
                 'location' => normalizeFieldValue(getItemField($fields, $fieldMap['location'])),
                 'description' => normalizeFieldValue(getItemField($fields, $fieldMap['description'])),
             ],
         ];
+
+        $events[] = array_merge($event, getCalendarEventColors($state));
     }
 
     usort($events, function ($left, $right) {
@@ -308,6 +350,39 @@ function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable
     });
 
     return $events;
+}
+
+function readJsonBody(): array
+{
+    $rawBody = file_get_contents('php://input');
+    if ($rawBody === false || trim($rawBody) === '') {
+        throw new Exception('Missing request body.');
+    }
+
+    $decoded = json_decode($rawBody, true);
+    if (!is_array($decoded)) {
+        throw new Exception('Invalid JSON request body.');
+    }
+
+    return $decoded;
+}
+
+function requireBodyString(array $body, string $name): string
+{
+    $value = $body[$name] ?? null;
+    if (!is_string($value) || trim($value) === '') {
+        throw new Exception("Missing required body field: {$name}");
+    }
+
+    return trim($value);
+}
+
+function updateCalendarItemState(GraphAPI $graphApi, string $siteId, string $listId, string $itemId, string $stateField, string $state): void
+{
+    $url = "https://graph.microsoft.com/v1.0/sites/{$siteId}/lists/{$listId}/items/" . rawurlencode($itemId) . '/fields';
+    $graphApi->requestJson('PATCH', $url, [
+        $stateField => $state,
+    ]);
 }
 
 try {
@@ -318,6 +393,53 @@ try {
 
     $host = requireCalendarSetting('MEMBER_CALENDAR_SITE_HOST');
     $path = requireCalendarSetting('MEMBER_CALENDAR_SITE_PATH');
+
+    $fieldMap = [
+        'title' => getRequiredFieldName('MEMBER_CALENDAR_TITLE_FIELD', 'Title'),
+        'start' => getRequiredFieldName('MEMBER_CALENDAR_START_FIELD', 'Start'),
+        'end' => getRequiredFieldName('MEMBER_CALENDAR_END_FIELD', 'End'),
+        'allDay' => getOptionalFieldName('MEMBER_CALENDAR_ALL_DAY_FIELD'),
+        'location' => getOptionalFieldName('MEMBER_CALENDAR_LOCATION_FIELD'),
+        'description' => getOptionalFieldName('MEMBER_CALENDAR_DESCRIPTION_FIELD'),
+        'state' => getStateFieldName(),
+    ];
+
+    $graphAuth = new Auth();
+    $graphApi = new GraphAPI($graphAuth);
+
+    $siteId = resolveCalendarSiteId($graphApi, $host, $path);
+    $listId = resolveCalendarListId($graphApi, $siteId);
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $memberAuth->requireCapability('reservation:approve');
+        $body = readJsonBody();
+        $action = requireBodyString($body, 'action');
+
+        if ($action !== 'update_state') {
+            throw new Exception('Unknown calendar action.');
+        }
+
+        $itemId = requireBodyString($body, 'id');
+        $state = requireBodyString($body, 'state');
+
+        if (!in_array($state, ['Confirmed', 'Canceled'], true)) {
+            throw new Exception('Invalid reservation state.');
+        }
+
+        updateCalendarItemState($graphApi, $siteId, $listId, $itemId, $fieldMap['state'], $state);
+
+        echo json_encode([
+            'success' => true,
+            'member' => $member,
+            'id' => $itemId,
+            'state' => $state,
+        ]);
+        exit;
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+        throw new Exception('Unsupported request method.');
+    }
 
     $rangeStart = parseDateParam(requireDateParam('start'), 'start');
     $rangeEnd = parseDateParam(requireDateParam('end'), 'end');
@@ -331,26 +453,18 @@ try {
         throw new Exception('Requested calendar range is too large.');
     }
 
-    $fieldMap = [
-        'title' => getRequiredFieldName('MEMBER_CALENDAR_TITLE_FIELD', 'Title'),
-        'start' => getRequiredFieldName('MEMBER_CALENDAR_START_FIELD', 'Start'),
-        'end' => getRequiredFieldName('MEMBER_CALENDAR_END_FIELD', 'End'),
-        'allDay' => getOptionalFieldName('MEMBER_CALENDAR_ALL_DAY_FIELD'),
-        'location' => getOptionalFieldName('MEMBER_CALENDAR_LOCATION_FIELD'),
-        'description' => getOptionalFieldName('MEMBER_CALENDAR_DESCRIPTION_FIELD'),
-    ];
-
-    $graphAuth = new Auth();
-    $graphApi = new GraphAPI($graphAuth);
-
-    $siteId = resolveCalendarSiteId($graphApi, $host, $path);
-    $listId = resolveCalendarListId($graphApi, $siteId);
     $items = loadCalendarItems($graphApi, $siteId, $listId, $rangeStart, $rangeEnd, $fieldMap['start']);
 
     echo json_encode([
         'success' => true,
         'member' => $member,
-        'events' => normalizeCalendarItems($items, $fieldMap, $rangeStart, $rangeEnd),
+        'events' => normalizeCalendarItems(
+            $items,
+            $fieldMap,
+            $rangeStart,
+            $rangeEnd,
+            memberHasCapability($member, 'reservation:cancel')
+        ),
         'range' => [
             'start' => $rangeStart->format(DateTimeInterface::ATOM),
             'end' => $rangeEnd->format(DateTimeInterface::ATOM),
@@ -358,11 +472,20 @@ try {
     ]);
 } catch (Exception $e) {
     $statusCode = $e->getMessage() === 'Authentication required.' ? 401 : 500;
+    if ($e->getMessage() === 'Permission denied.') {
+        $statusCode = 403;
+    }
     if (
         str_starts_with($e->getMessage(), 'Missing required query parameter')
         || str_starts_with($e->getMessage(), 'Invalid date parameter')
         || $e->getMessage() === 'Calendar range end must be after range start.'
         || $e->getMessage() === 'Requested calendar range is too large.'
+        || $e->getMessage() === 'Missing request body.'
+        || $e->getMessage() === 'Invalid JSON request body.'
+        || str_starts_with($e->getMessage(), 'Missing required body field')
+        || $e->getMessage() === 'Unknown calendar action.'
+        || $e->getMessage() === 'Invalid reservation state.'
+        || $e->getMessage() === 'Unsupported request method.'
     ) {
         $statusCode = 400;
     }

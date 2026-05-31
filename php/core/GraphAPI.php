@@ -17,21 +17,56 @@ class GraphAPI
 
     public function callAPI(string $url): array
     {
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'header' => 'Authorization: Bearer ' . $this->auth->getAccessToken(),
-                'timeout' => 30
-            ]
-        ]);
+        return $this->requestJson('GET', $url);
+    }
 
-        $response = file_get_contents($url, false, $context);
+    public function requestJson(string $method, string $url, ?array $payload = null): array
+    {
+        $headers = [
+            'Authorization: Bearer ' . $this->auth->getAccessToken(),
+            'Accept: application/json',
+        ];
+
+        $options = [
+            'http' => [
+                'method' => strtoupper($method),
+                'timeout' => 30,
+                'ignore_errors' => true,
+            ],
+        ];
+
+        if ($payload !== null) {
+            $encodedPayload = json_encode($payload);
+            if ($encodedPayload === false) {
+                throw new Exception('Failed to encode Graph API payload');
+            }
+
+            $headers[] = 'Content-Type: application/json';
+            $options['http']['content'] = $encodedPayload;
+        }
+
+        $options['http']['header'] = implode("\r\n", $headers) . "\r\n";
+
+        $context = stream_context_create($options);
+        $response = @file_get_contents($url, false, $context);
 
         if ($response === false) {
             throw new Exception('Failed to call Graph API');
         }
 
-        return json_decode($response, true);
+        $statusCode = $this->extractStatusCode($http_response_header ?? []);
+        $decoded = $response === '' ? [] : json_decode($response, true);
+
+        if ($response !== '' && !is_array($decoded)) {
+            throw new Exception('Invalid JSON response from Graph API');
+        }
+
+        if ($statusCode >= 400) {
+            $message = $decoded['error']['message'] ?? 'Graph API request failed';
+            throw new Exception($message);
+        }
+
+        return $decoded ?: [];
     }
 
     public function getAccessToken(): string
@@ -73,5 +108,16 @@ class GraphAPI
         @chmod($siteCacheFile, 0600);
 
         return $this->siteId;
+    }
+
+    private function extractStatusCode(array $headers): int
+    {
+        foreach ($headers as $header) {
+            if (preg_match('/^HTTP\/\S+\s+(\d{3})/', $header, $matches)) {
+                return intval($matches[1]);
+            }
+        }
+
+        return 200;
     }
 }

@@ -6,7 +6,8 @@ class MemberAuth
     private string $tenantId;
     private string $clientSecret;
     private string $redirectUri;
-    private string $allowedEmail;
+    private array $memberEmails;
+    private array $adminEmails;
     private string $sessionName;
     private string $sessionSecret;
 
@@ -18,7 +19,13 @@ class MemberAuth
         $this->tenantId = $this->requireEnv('MEMBER_OIDC_TENANT_ID');
         $this->clientSecret = $this->requireEnv('MEMBER_OIDC_CLIENT_SECRET');
         $this->redirectUri = $this->requireEnv('MEMBER_OIDC_REDIRECT_URI');
-        $this->allowedEmail = strtolower($this->requireEnv('MEMBER_ALLOWED_EMAIL'));
+        $this->memberEmails = $this->parseEmailList(getenv('MEMBER_EMAILS') ?: '');
+        $this->adminEmails = $this->parseEmailList(getenv('MEMBER_ADMIN_EMAILS') ?: '');
+
+        if (empty($this->memberEmails) && empty($this->adminEmails)) {
+            $this->memberEmails = $this->parseEmailList($this->requireEnv('MEMBER_ALLOWED_EMAIL'));
+        }
+
         $this->sessionName = getenv('MEMBER_SESSION_NAME') ?: 'vstj_member_session';
         $this->sessionSecret = $this->requireEnv('MEMBER_SESSION_SECRET');
     }
@@ -86,8 +93,9 @@ class MemberAuth
         $tokens = $this->exchangeAuthorizationCode($code, $codeVerifier);
         $claims = $this->validateIdToken($tokens['id_token'] ?? '', $expectedNonce);
         $email = $this->extractEmail($claims);
+        $role = $this->resolveRole($email);
 
-        if (!$email || strtolower($email) !== $this->allowedEmail) {
+        if ($role === null) {
             throw new Exception('The signed-in account is not allowed to access the member area.');
         }
 
@@ -96,6 +104,8 @@ class MemberAuth
             'authenticated' => true,
             'memberEmail' => $email,
             'displayName' => $claims['name'] ?? $email,
+            'role' => $role,
+            'capabilities' => $this->getCapabilitiesForRole($role),
             'idTokenExpiresAt' => intval($claims['exp'] ?? 0),
             'authenticatedAt' => time(),
         ];
@@ -136,6 +146,8 @@ class MemberAuth
                 'authenticated' => false,
                 'memberEmail' => null,
                 'displayName' => null,
+                'role' => null,
+                'capabilities' => [],
             ];
         }
 
@@ -145,6 +157,20 @@ class MemberAuth
                 'authenticated' => false,
                 'memberEmail' => null,
                 'displayName' => null,
+                'role' => null,
+                'capabilities' => [],
+            ];
+        }
+
+        $role = $this->resolveRole($member['memberEmail'] ?? null) ?? ($member['role'] ?? null);
+        if ($role === null) {
+            unset($_SESSION['member']);
+            return [
+                'authenticated' => false,
+                'memberEmail' => null,
+                'displayName' => null,
+                'role' => null,
+                'capabilities' => [],
             ];
         }
 
@@ -152,6 +178,8 @@ class MemberAuth
             'authenticated' => true,
             'memberEmail' => $member['memberEmail'] ?? null,
             'displayName' => $member['displayName'] ?? null,
+            'role' => $role,
+            'capabilities' => $member['capabilities'] ?? $this->getCapabilitiesForRole($role),
         ];
     }
 
@@ -160,6 +188,18 @@ class MemberAuth
         $session = $this->getSessionState();
         if (empty($session['authenticated'])) {
             throw new Exception('Authentication required.');
+        }
+
+        return $session;
+    }
+
+    public function requireCapability(string $capability): array
+    {
+        $session = $this->requireMember();
+        $capabilities = $session['capabilities'] ?? [];
+
+        if (!is_array($capabilities) || !in_array($capability, $capabilities, true)) {
+            throw new Exception('Permission denied.');
         }
 
         return $session;
@@ -464,6 +504,46 @@ class MemberAuth
         }
 
         return null;
+    }
+
+    private function parseEmailList(string $value): array
+    {
+        $emails = array_map('trim', explode(',', $value));
+        $emails = array_map('strtolower', $emails);
+        return array_values(array_filter($emails, fn ($email) => $email !== ''));
+    }
+
+    private function resolveRole(?string $email): ?string
+    {
+        if (!$email) {
+            return null;
+        }
+
+        $normalizedEmail = strtolower($email);
+        if (in_array($normalizedEmail, $this->adminEmails, true)) {
+            return 'admin';
+        }
+
+        if (in_array($normalizedEmail, $this->memberEmails, true)) {
+            return 'member';
+        }
+
+        return null;
+    }
+
+    private function getCapabilitiesForRole(string $role): array
+    {
+        $capabilities = [
+            'calendar:view',
+            'reservation:create',
+        ];
+
+        if ($role === 'admin') {
+            $capabilities[] = 'reservation:approve';
+            $capabilities[] = 'reservation:cancel';
+        }
+
+        return $capabilities;
     }
 
     private function requireEnv(string $name): string

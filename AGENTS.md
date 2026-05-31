@@ -49,6 +49,12 @@ This document provides clear, practical instructions for coding agents working o
    - Do not change endpoint signatures, response formats, or component props without clear justification.
    - If you must change a public API, document it and explain the breaking change.
 
+7. **Design for reuse and realistic extension**  
+   - When creating components, hooks, modules, or authorization logic, make them flexible enough for nearby future use cases instead of hardcoding a single current scenario.
+   - Prefer data-driven configuration, props, and role/capability checks over fixed identities or one-off branches.
+   - Example: if members can currently log in through `clen.jachting@technika-praha.cz`, do not build the member area as if that is the only possible authenticated account forever. Structure the solution so another account such as `jaching@technika-praha.cz` can be added with a different role, such as an admin who can approve or reject calendar events, without rewriting the component or endpoint from scratch.
+   - Keep this pragmatic: do not over-engineer broad frameworks, but avoid designs that are obviously tied to one email address, one role, or one page.
+
 ---
 
 ## 3. React / Frontend Standards
@@ -61,6 +67,7 @@ This document provides clear, practical instructions for coding agents working o
 
 ### Component design
 - Keep components **small and focused**; break large components into smaller pieces.
+- Prioritize **reusable, flexible components**. Accept props for data, permissions, labels, callbacks, and state instead of embedding one specific workflow or user role directly in the component.
 - Avoid duplicating state. Use a parent component or shared context if needed.
 - Handle **loading, empty, and error states** explicitly (do not assume data always arrives).
 - Pass computed/derived data as props; avoid complex logic in JSX.

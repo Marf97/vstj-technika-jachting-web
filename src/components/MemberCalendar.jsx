@@ -2,8 +2,10 @@ import React, { useCallback, useRef, useState } from "react";
 import {
   Alert,
   Box,
+  Button,
   CircularProgress,
   Dialog,
+  DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
@@ -14,20 +16,38 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import csLocale from "@fullcalendar/core/locales/cs";
-import { fetchMemberCalendar } from "../lib/graph";
+import { fetchMemberCalendar, updateMemberCalendarEventState } from "../lib/graph";
 
 const CALENDAR_ENDPOINT = import.meta.env.VITE_MEMBER_CALENDAR_URL;
 
-export default function MemberCalendar() {
+const STATE_LABELS = {
+  Requested: "Čeká na schválení",
+  Confirmed: "Schváleno",
+  Canceled: "Zamítnuto",
+  Rejected: "Zamítnuto",
+};
+
+function getStateLabel(state) {
+  return STATE_LABELS[state] || state || "Neuvedeno";
+}
+
+export default function MemberCalendar({
+  canApproveReservations = false,
+  canCancelReservations = false,
+}) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [updateError, setUpdateError] = useState(null);
+  const [updatingState, setUpdatingState] = useState(null);
   const [calendarTitle, setCalendarTitle] = useState("");
   const requestIdRef = useRef(0);
+  const lastFetchInfoRef = useRef(null);
 
   const loadEvents = useCallback(async (fetchInfo) => {
     const requestId = ++requestIdRef.current;
+    lastFetchInfoRef.current = fetchInfo;
     const title = fetchInfo.view.title;
     setCalendarTitle(title.charAt(0).toUpperCase() + title.slice(1));
 
@@ -62,17 +82,53 @@ export default function MemberCalendar() {
 
   const handleEventClick = useCallback((clickInfo) => {
     setSelectedEvent({
+      id: clickInfo.event.id,
       title: clickInfo.event.title,
       start: clickInfo.event.start,
       end: clickInfo.event.end,
+      state: clickInfo.event.extendedProps?.state || "Requested",
       description: clickInfo.event.extendedProps?.description || null,
       location: clickInfo.event.extendedProps?.location || null,
     });
+    setUpdateError(null);
   }, []);
 
   const handleDialogClose = useCallback(() => {
     setSelectedEvent(null);
+    setUpdateError(null);
   }, []);
+
+  const handleStateUpdate = useCallback(
+    async (nextState) => {
+      if (!selectedEvent?.id) {
+        return;
+      }
+
+      setUpdatingState(nextState);
+      setUpdateError(null);
+
+      try {
+        await updateMemberCalendarEventState(
+          CALENDAR_ENDPOINT,
+          selectedEvent.id,
+          nextState
+        );
+
+        if (lastFetchInfoRef.current) {
+          await loadEvents(lastFetchInfoRef.current);
+        }
+
+        setSelectedEvent(null);
+      } catch (err) {
+        setUpdateError(
+          err.message || "Nepodařilo se aktualizovat stav rezervace."
+        );
+      } finally {
+        setUpdatingState(null);
+      }
+    },
+    [loadEvents, selectedEvent]
+  );
 
   const formatDateTime = useCallback((value) => {
     if (!value) {
@@ -198,6 +254,8 @@ export default function MemberCalendar() {
         <DialogContent>
           {selectedEvent && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+              {updateError && <Alert severity="error">{updateError}</Alert>}
+
               <Box>
                 <Typography variant="overline" color="text.secondary">
                   Loď
@@ -206,6 +264,13 @@ export default function MemberCalendar() {
               </Box>
 
               <Divider />
+
+              <Box>
+                <Typography variant="overline" color="text.secondary">
+                  Stav
+                </Typography>
+                <Typography>{getStateLabel(selectedEvent.state)}</Typography>
+              </Box>
 
               <Box>
                 <Typography variant="overline" color="text.secondary">
@@ -241,6 +306,48 @@ export default function MemberCalendar() {
             </Box>
           )}
         </DialogContent>
+        {selectedEvent &&
+          (canApproveReservations || canCancelReservations) &&
+          ["Requested", "Confirmed", "Canceled", "Rejected"].includes(
+            selectedEvent.state
+          ) && (
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              {canCancelReservations &&
+                ["Requested", "Confirmed"].includes(selectedEvent.state) && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    disabled={Boolean(updatingState)}
+                    onClick={() => handleStateUpdate("Canceled")}
+                  >
+                    {updatingState === "Canceled" ? "Ukládám..." : "Zamítnout"}
+                  </Button>
+                )}
+              {canApproveReservations && selectedEvent.state === "Requested" && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={Boolean(updatingState)}
+                  onClick={() => handleStateUpdate("Confirmed")}
+                >
+                  {updatingState === "Confirmed" ? "Ukládám..." : "Schválit"}
+                </Button>
+              )}
+              {canApproveReservations &&
+                ["Canceled", "Rejected"].includes(selectedEvent.state) && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    disabled={Boolean(updatingState)}
+                    onClick={() => handleStateUpdate("Confirmed")}
+                  >
+                    {updatingState === "Confirmed"
+                      ? "Ukládám..."
+                      : "Obnovit jako schválené"}
+                  </Button>
+                )}
+            </DialogActions>
+          )}
       </Dialog>
     </Paper>
   );

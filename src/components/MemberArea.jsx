@@ -8,7 +8,7 @@ const NEW_RESERVATION_FORM_URL =
   "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=D7ZPjqAN20CQiuMyQ7lNTQ61bM0yBdlCvmC_M9kXlkJURFA0ODYzOElUWlRTOFZZVTU0QTlWNzdUUi4u";
 
 export default function MemberArea() {
-  const { session, loading, error, login, logout } = useMemberAuth();
+  const { session, loading, error, hasCapability, login, logout } = useMemberAuth();
 
   if (loading) {
     return (
@@ -38,7 +38,10 @@ export default function MemberArea() {
         <Typography sx={{ mb: 3 }}>
           Po přihlášení přes Microsoft se odemkne neveřejný obsah určený pro členy.
         </Typography>
-        <Button variant="contained" onClick={() => login(window.location.href)}>
+        <Button
+          variant="contained"
+          onClick={() => login(`${window.location.origin}/clenska-sekce`)}
+        >
           Přihlásit se pro členy
         </Button>
       </Paper>
@@ -64,22 +67,27 @@ export default function MemberArea() {
           </Typography>
         )}
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
-          <Button
-            variant="contained"
-            href={NEW_RESERVATION_FORM_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            endIcon={<OpenInNewIcon fontSize="small" />}
-          >
-            Nová rezervace
-          </Button>
+          {hasCapability("reservation:create") && (
+            <Button
+              variant="contained"
+              href={NEW_RESERVATION_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              endIcon={<OpenInNewIcon fontSize="small" />}
+            >
+              Nová rezervace
+            </Button>
+          )}
           <Button variant="outlined" onClick={() => logout(window.location.origin)}>
             Odhlásit
           </Button>
         </Box>
       </Paper>
 
-      <MemberCalendar />
+      <MemberCalendar
+        canApproveReservations={hasCapability("reservation:approve")}
+        canCancelReservations={hasCapability("reservation:cancel")}
+      />
     </Box>
   );
 }

@@ -227,3 +227,32 @@ export async function fetchMemberCalendar(
 
   return data.events as any[];
 }
+
+export async function updateMemberCalendarEventState(
+  calendarUrl: string,
+  id: string,
+  state: "Confirmed" | "Canceled"
+): Promise<void> {
+  const response = await fetch(calendarUrl, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "update_state",
+      id,
+      state,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Calendar update error ${response.status}: ${error}`);
+  }
+
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(`Calendar update returned error: ${data.error}`);
+  }
+}

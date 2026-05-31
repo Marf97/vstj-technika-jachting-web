@@ -11,12 +11,15 @@ type MemberSession = {
   authenticated: boolean;
   memberEmail: string | null;
   displayName: string | null;
+  role: "member" | "admin" | null;
+  capabilities: string[];
 };
 
 type MemberAuthContextValue = {
   session: MemberSession;
   loading: boolean;
   error: string | null;
+  hasCapability: (capability: string) => boolean;
   refreshSession: () => Promise<void>;
   login: (returnTo?: string) => void;
   logout: (returnTo?: string) => void;
@@ -26,6 +29,8 @@ const defaultSession: MemberSession = {
   authenticated: false,
   memberEmail: null,
   displayName: null,
+  role: null,
+  capabilities: [],
 };
 
 let cachedSession: MemberSession | null = null;
@@ -55,23 +60,32 @@ async function fetchSessionState(): Promise<MemberSession> {
   }
 
   sessionFetchPromise = (async () => {
-  const response = await fetch(buildAuthUrl("session"), {
-    credentials: "include",
-  });
+    const response = await fetch(buildAuthUrl("session"), {
+      credentials: "include",
+    });
 
-  if (!response.ok) {
-    throw new Error(`Session check failed with status ${response.status}`);
-  }
+    if (!response.ok) {
+      throw new Error(`Session check failed with status ${response.status}`);
+    }
 
-  const data = await response.json();
-  if (!data.success) {
-    throw new Error(data.error || "Failed to load session state.");
-  }
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || "Failed to load session state.");
+    }
 
-    const session = {
-    authenticated: Boolean(data.session?.authenticated),
-    memberEmail: data.session?.memberEmail ?? null,
-    displayName: data.session?.displayName ?? null,
+    const session: MemberSession = {
+      authenticated: Boolean(data.session?.authenticated),
+      memberEmail: data.session?.memberEmail ?? null,
+      displayName: data.session?.displayName ?? null,
+      role:
+        data.session?.role === "admin"
+          ? "admin"
+          : data.session?.role === "member"
+            ? "member"
+            : null,
+      capabilities: Array.isArray(data.session?.capabilities)
+        ? data.session.capabilities
+        : [],
     };
 
     cachedSession = session;
@@ -118,6 +132,9 @@ export function MemberAuthProvider({
       session,
       loading,
       error,
+      hasCapability(capability: string) {
+        return session.capabilities.includes(capability);
+      },
       refreshSession,
       login(returnTo?: string) {
         window.location.href = buildAuthUrl(
