@@ -150,6 +150,14 @@ function AppContent() {
             <Route path="/novinky/:year/:article" element={<News />} />
             <Route path="/nase-lode" element={<Boats />} />
             <Route path="/clenska-sekce" element={<MemberArea />} />
+            <Route
+              path="/clenska-sekce/cenik"
+              element={<MemberArea pageKey="priceList" />}
+            />
+            <Route
+              path="/clenska-sekce/pravidla-pujcovani"
+              element={<MemberArea pageKey="rentalRules" />}
+            />
           </Routes>
         </Container>
         <Footer />

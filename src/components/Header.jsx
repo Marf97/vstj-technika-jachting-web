@@ -40,8 +40,8 @@ export default function Header({ onNavClick }) {
     [location.pathname, navigate, onNavClick]
   );
 
-  const navItems = useMemo(() => {
-    const items = [
+  const navItems = useMemo(
+    () => [
       { label: "O nás", action: () => handleNavClick("O nás", "/") },
       { label: "Kontakt", action: () => handleNavClick("Kontakt", "/") },
       { label: "Galerie", action: () => handleNavClick("Galerie", "/") },
@@ -53,17 +53,27 @@ export default function Header({ onNavClick }) {
         label: "Naše lodě",
         action: () => handleNavClick("Naše lodě", "/nase-lode"),
       },
-    ];
+    ],
+    [handleNavClick]
+  );
 
-    if (session.authenticated) {
-      items.push({
-        label: "Členská sekce",
+  const memberNavItems = useMemo(
+    () => [
+      {
+        label: "Členský kalendář",
         action: () => navigate("/clenska-sekce"),
-      });
-    }
-
-    return items;
-  }, [handleNavClick, session.authenticated, navigate]);
+      },
+      {
+        label: "Ceník lodí",
+        action: () => navigate("/clenska-sekce/cenik"),
+      },
+      {
+        label: "Pravidla půjčování",
+        action: () => navigate("/clenska-sekce/pravidla-pujcovani"),
+      },
+    ],
+    [navigate]
+  );
 
   const authItem = session.authenticated
     ? {
@@ -204,6 +214,27 @@ export default function Header({ onNavClick }) {
             </ListItemButton>
           ))}
         </List>
+
+        {session.authenticated && (
+          <>
+            <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
+
+            <List>
+              {memberNavItems.map((item) => (
+                <ListItemButton
+                  key={item.label}
+                  onClick={() => {
+                    closeDrawer();
+                    item.action();
+                  }}
+                  sx={{ py: 1.5, px: 3 }}
+                >
+                  <ListItemText primary={item.label} />
+                </ListItemButton>
+              ))}
+            </List>
+          </>
+        )}
 
         <Divider sx={{ borderColor: "rgba(255,255,255,0.12)" }} />
 
