@@ -541,6 +541,8 @@ class MemberAuth
         if ($role === 'admin') {
             $capabilities[] = 'reservation:approve';
             $capabilities[] = 'reservation:cancel';
+            $capabilities[] = 'club_event:create';
+            $capabilities[] = 'club_event:delete';
         }
 
         return $capabilities;

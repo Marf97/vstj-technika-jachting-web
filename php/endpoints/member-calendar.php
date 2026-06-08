@@ -76,14 +76,16 @@ function resolveCalendarSiteId(GraphAPI $graphApi, string $host, string $path): 
     return $siteId;
 }
 
-function resolveCalendarListId(GraphAPI $graphApi, string $siteId): string
+function resolveConfiguredListId(GraphAPI $graphApi, string $siteId, ?string $listId, ?string $listTitle, string $errorMessage): string
 {
-    $listId = getCalendarEnv('MEMBER_CALENDAR_LIST_ID');
     if ($listId !== null) {
         return $listId;
     }
 
-    $listTitle = requireCalendarSetting('MEMBER_CALENDAR_LIST_TITLE');
+    if ($listTitle === null) {
+        throw new Exception($errorMessage);
+    }
+
     $response = $graphApi->callAPI("https://graph.microsoft.com/v1.0/sites/{$siteId}/lists?\$select=id,displayName");
     $lists = $response['value'] ?? [];
 
@@ -93,7 +95,29 @@ function resolveCalendarListId(GraphAPI $graphApi, string $siteId): string
         }
     }
 
-    throw new Exception('Unable to find the configured member calendar list.');
+    throw new Exception($errorMessage);
+}
+
+function resolveCalendarListId(GraphAPI $graphApi, string $siteId): string
+{
+    return resolveConfiguredListId(
+        $graphApi,
+        $siteId,
+        getCalendarEnv('MEMBER_CALENDAR_LIST_ID'),
+        getCalendarEnv('MEMBER_CALENDAR_LIST_TITLE'),
+        'Unable to find the configured member calendar list.'
+    );
+}
+
+function resolveClubEventsListId(GraphAPI $graphApi, string $siteId): string
+{
+    return resolveConfiguredListId(
+        $graphApi,
+        $siteId,
+        getCalendarEnv('CLUB_EVENTS_LIST_ID'),
+        getCalendarEnv('CLUB_EVENTS_LIST_TITLE') ?? 'Klubove udalosti',
+        'Unable to find the configured club events list.'
+    );
 }
 
 function requireDateParam(string $name): string
@@ -297,9 +321,12 @@ function getCalendarEventColors(string $state): array
     };
 }
 
-function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable $rangeStart, DateTimeImmutable $rangeEnd, bool $includeCanceled): array
+function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable $rangeStart, DateTimeImmutable $rangeEnd, bool $includeCanceled, array $source): array
 {
     $events = [];
+    $sourceKey = $source['key'] ?? 'boat_reservation';
+    $sourceLabel = $source['label'] ?? 'Rezervace';
+    $sourceColors = $source['colors'] ?? null;
 
     foreach ($items as $item) {
         $fields = $item['fields'] ?? [];
@@ -329,20 +356,24 @@ function normalizeCalendarItems(array $items, array $fieldMap, DateTimeImmutable
             $title = normalizeFieldValue($fields['Title'] ?? null) ?: 'Bez nazvu';
         }
 
+        $itemId = (string) ($item['id'] ?? uniqid('member-calendar-', true));
         $event = [
-            'id' => (string) ($item['id'] ?? uniqid('member-calendar-', true)),
+            'id' => $sourceKey . ':' . $itemId,
             'title' => $title,
             'start' => $startDate->format(DateTimeInterface::ATOM),
             'end' => $endDate->format(DateTimeInterface::ATOM),
             'allDay' => normalizeBooleanValue(getItemField($fields, $fieldMap['allDay'])),
             'extendedProps' => [
+                'itemId' => $itemId,
+                'source' => $sourceKey,
+                'sourceLabel' => $sourceLabel,
                 'state' => $state,
                 'location' => normalizeFieldValue(getItemField($fields, $fieldMap['location'])),
                 'description' => normalizeFieldValue(getItemField($fields, $fieldMap['description'])),
             ],
         ];
 
-        $events[] = array_merge($event, getCalendarEventColors($state));
+        $events[] = array_merge($event, $sourceColors ?? getCalendarEventColors($state));
     }
 
     usort($events, function ($left, $right) {
@@ -385,6 +416,12 @@ function updateCalendarItemState(GraphAPI $graphApi, string $siteId, string $lis
     ]);
 }
 
+function deleteCalendarItem(GraphAPI $graphApi, string $siteId, string $listId, string $itemId): void
+{
+    $url = "https://graph.microsoft.com/v1.0/sites/{$siteId}/lists/{$listId}/items/" . rawurlencode($itemId);
+    $graphApi->requestJson('DELETE', $url);
+}
+
 try {
     Config::getAllowedOrigins();
 
@@ -403,6 +440,28 @@ try {
         'description' => getOptionalFieldName('MEMBER_CALENDAR_DESCRIPTION_FIELD'),
         'state' => getStateFieldName(),
     ];
+    $clubEventFieldMap = [
+        'title' => getRequiredFieldName('CLUB_EVENTS_TITLE_FIELD', 'Title'),
+        'start' => getRequiredFieldName('CLUB_EVENTS_START_FIELD', 'Start'),
+        'end' => getRequiredFieldName('CLUB_EVENTS_END_FIELD', 'End'),
+        'allDay' => getOptionalFieldName('CLUB_EVENTS_ALL_DAY_FIELD'),
+        'location' => getOptionalFieldName('CLUB_EVENTS_LOCATION_FIELD'),
+        'description' => getRequiredFieldName('CLUB_EVENTS_NOTE_FIELD', 'Poznamka'),
+        'state' => null,
+    ];
+    $reservationSource = [
+        'key' => 'boat_reservation',
+        'label' => 'Rezervace lodi',
+    ];
+    $clubEventSource = [
+        'key' => 'club_event',
+        'label' => 'Klubove udalosti',
+        'colors' => [
+            'backgroundColor' => '#1976d2',
+            'borderColor' => '#1976d2',
+            'textColor' => '#ffffff',
+        ],
+    ];
 
     $graphAuth = new Auth();
     $graphApi = new GraphAPI($graphAuth);
@@ -411,30 +470,44 @@ try {
     $listId = resolveCalendarListId($graphApi, $siteId);
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $memberAuth->requireCapability('reservation:approve');
         $body = readJsonBody();
         $action = requireBodyString($body, 'action');
 
-        if ($action !== 'update_state') {
-            throw new Exception('Unknown calendar action.');
+        if ($action === 'update_state') {
+            $memberAuth->requireCapability('reservation:approve');
+            $itemId = requireBodyString($body, 'id');
+            $state = requireBodyString($body, 'state');
+
+            if (!in_array($state, ['Confirmed', 'Canceled'], true)) {
+                throw new Exception('Invalid reservation state.');
+            }
+
+            updateCalendarItemState($graphApi, $siteId, $listId, $itemId, $fieldMap['state'], $state);
+
+            echo json_encode([
+                'success' => true,
+                'member' => $member,
+                'id' => $itemId,
+                'state' => $state,
+            ]);
+            exit;
         }
 
-        $itemId = requireBodyString($body, 'id');
-        $state = requireBodyString($body, 'state');
+        if ($action === 'delete_club_event') {
+            $memberAuth->requireCapability('club_event:delete');
+            $itemId = requireBodyString($body, 'id');
+            $clubEventsListId = resolveClubEventsListId($graphApi, $siteId);
+            deleteCalendarItem($graphApi, $siteId, $clubEventsListId, $itemId);
 
-        if (!in_array($state, ['Confirmed', 'Canceled'], true)) {
-            throw new Exception('Invalid reservation state.');
+            echo json_encode([
+                'success' => true,
+                'member' => $member,
+                'id' => $itemId,
+            ]);
+            exit;
         }
 
-        updateCalendarItemState($graphApi, $siteId, $listId, $itemId, $fieldMap['state'], $state);
-
-        echo json_encode([
-            'success' => true,
-            'member' => $member,
-            'id' => $itemId,
-            'state' => $state,
-        ]);
-        exit;
+        throw new Exception('Unknown calendar action.');
     }
 
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -454,17 +527,43 @@ try {
     }
 
     $items = loadCalendarItems($graphApi, $siteId, $listId, $rangeStart, $rangeEnd, $fieldMap['start']);
+    $events = normalizeCalendarItems(
+        $items,
+        $fieldMap,
+        $rangeStart,
+        $rangeEnd,
+        memberHasCapability($member, 'reservation:cancel'),
+        $reservationSource
+    );
+    $warnings = [];
+
+    try {
+        $clubEventsListId = resolveClubEventsListId($graphApi, $siteId);
+        $clubItems = loadCalendarItems($graphApi, $siteId, $clubEventsListId, $rangeStart, $rangeEnd, $clubEventFieldMap['start']);
+        $events = array_merge($events, normalizeCalendarItems(
+            $clubItems,
+            $clubEventFieldMap,
+            $rangeStart,
+            $rangeEnd,
+            true,
+            $clubEventSource
+        ));
+    } catch (Exception $e) {
+        $warnings[] = [
+            'source' => 'club_event',
+            'message' => $e->getMessage(),
+        ];
+    }
+
+    usort($events, function ($left, $right) {
+        return strcmp($left['start'], $right['start']);
+    });
 
     echo json_encode([
         'success' => true,
         'member' => $member,
-        'events' => normalizeCalendarItems(
-            $items,
-            $fieldMap,
-            $rangeStart,
-            $rangeEnd,
-            memberHasCapability($member, 'reservation:cancel')
-        ),
+        'events' => $events,
+        'warnings' => $warnings,
         'range' => [
             'start' => $rangeStart->format(DateTimeInterface::ATOM),
             'end' => $rangeEnd->format(DateTimeInterface::ATOM),

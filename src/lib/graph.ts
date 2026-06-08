@@ -256,3 +256,30 @@ export async function updateMemberCalendarEventState(
     throw new Error(`Calendar update returned error: ${data.error}`);
   }
 }
+
+export async function deleteClubCalendarEvent(
+  calendarUrl: string,
+  id: string
+): Promise<void> {
+  const response = await fetch(calendarUrl, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      action: "delete_club_event",
+      id,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Calendar delete error ${response.status}: ${error}`);
+  }
+
+  const data = await response.json();
+  if (!data.success) {
+    throw new Error(`Calendar delete returned error: ${data.error}`);
+  }
+}

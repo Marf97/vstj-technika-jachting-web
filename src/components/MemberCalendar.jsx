@@ -16,7 +16,11 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import csLocale from "@fullcalendar/core/locales/cs";
-import { fetchMemberCalendar, updateMemberCalendarEventState } from "../lib/graph";
+import {
+  deleteClubCalendarEvent,
+  fetchMemberCalendar,
+  updateMemberCalendarEventState,
+} from "../lib/graph";
 
 const CALENDAR_ENDPOINT = import.meta.env.VITE_MEMBER_CALENDAR_URL;
 
@@ -34,6 +38,7 @@ function getStateLabel(state) {
 export default function MemberCalendar({
   canApproveReservations = false,
   canCancelReservations = false,
+  canDeleteClubEvents = false,
 }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +46,7 @@ export default function MemberCalendar({
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [updateError, setUpdateError] = useState(null);
   const [updatingState, setUpdatingState] = useState(null);
+  const [deletingEvent, setDeletingEvent] = useState(false);
   const [calendarTitle, setCalendarTitle] = useState("");
   const requestIdRef = useRef(0);
   const lastFetchInfoRef = useRef(null);
@@ -83,10 +89,13 @@ export default function MemberCalendar({
   const handleEventClick = useCallback((clickInfo) => {
     setSelectedEvent({
       id: clickInfo.event.id,
+      itemId: clickInfo.event.extendedProps?.itemId || clickInfo.event.id,
       title: clickInfo.event.title,
       start: clickInfo.event.start,
       end: clickInfo.event.end,
       state: clickInfo.event.extendedProps?.state || "Requested",
+      source: clickInfo.event.extendedProps?.source || "boat_reservation",
+      sourceLabel: clickInfo.event.extendedProps?.sourceLabel || "Rezervace",
       description: clickInfo.event.extendedProps?.description || null,
       location: clickInfo.event.extendedProps?.location || null,
     });
@@ -96,6 +105,7 @@ export default function MemberCalendar({
   const handleDialogClose = useCallback(() => {
     setSelectedEvent(null);
     setUpdateError(null);
+    setDeletingEvent(false);
   }, []);
 
   const handleStateUpdate = useCallback(
@@ -110,7 +120,7 @@ export default function MemberCalendar({
       try {
         await updateMemberCalendarEventState(
           CALENDAR_ENDPOINT,
-          selectedEvent.id,
+          selectedEvent.itemId,
           nextState
         );
 
@@ -129,6 +139,34 @@ export default function MemberCalendar({
     },
     [loadEvents, selectedEvent]
   );
+
+  const handleDeleteClubEvent = useCallback(async () => {
+    if (!selectedEvent?.itemId || selectedEvent.source !== "club_event") {
+      return;
+    }
+
+    const confirmed = window.confirm("Opravdu smazat tuto klubovou udalost?");
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingEvent(true);
+    setUpdateError(null);
+
+    try {
+      await deleteClubCalendarEvent(CALENDAR_ENDPOINT, selectedEvent.itemId);
+
+      if (lastFetchInfoRef.current) {
+        await loadEvents(lastFetchInfoRef.current);
+      }
+
+      setSelectedEvent(null);
+    } catch (err) {
+      setUpdateError(err.message || "Nepodarilo se smazat klubovou udalost.");
+    } finally {
+      setDeletingEvent(false);
+    }
+  }, [loadEvents, selectedEvent]);
 
   const formatDateTime = useCallback((value) => {
     if (!value) {
@@ -150,7 +188,7 @@ export default function MemberCalendar({
         Členský kalendář
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-        Kalendář momentálně zobrazuje rezervace lodí v měsíčním zobrazení. Kliknutím na rezervaci zobrazíte její detail.
+        Kalendář momentálně zobrazuje rezervace lodí a klubové události v měsíčním zobrazení. Kliknutím na záznam zobrazíte jeho detail.
       </Typography>
 
       {error && (
@@ -239,7 +277,7 @@ export default function MemberCalendar({
 
       {!loading && !error && events.length === 0 && (
         <Alert severity="info" sx={{ mt: 2 }}>
-          V aktuálně zobrazeném období nejsou žádné rezervace.
+          V aktuálně zobrazeném období nejsou žádné záznamy.
         </Alert>
       )}
 
@@ -250,7 +288,11 @@ export default function MemberCalendar({
         maxWidth="sm"
         disableScrollLock
       >
-        <DialogTitle>Detail rezervace</DialogTitle>
+        <DialogTitle>
+          {selectedEvent?.source === "club_event"
+            ? "Detail klubové události"
+            : "Detail rezervace"}
+        </DialogTitle>
         <DialogContent>
           {selectedEvent && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
@@ -258,7 +300,7 @@ export default function MemberCalendar({
 
               <Box>
                 <Typography variant="overline" color="text.secondary">
-                  Loď
+                  {selectedEvent.source === "club_event" ? "Název" : "Loď"}
                 </Typography>
                 <Typography variant="h6">{selectedEvent.title}</Typography>
               </Box>
@@ -267,21 +309,34 @@ export default function MemberCalendar({
 
               <Box>
                 <Typography variant="overline" color="text.secondary">
+                  Typ
+                </Typography>
+                <Typography>{selectedEvent.sourceLabel}</Typography>
+              </Box>
+
+              {selectedEvent.source !== "club_event" && (
+              <Box>
+                <Typography variant="overline" color="text.secondary">
                   Stav
                 </Typography>
                 <Typography>{getStateLabel(selectedEvent.state)}</Typography>
               </Box>
+              )}
 
               <Box>
                 <Typography variant="overline" color="text.secondary">
-                  Začátek výpůjčky
+                  {selectedEvent.source === "club_event"
+                    ? "Začátek"
+                    : "Začátek výpůjčky"}
                 </Typography>
                 <Typography>{formatDateTime(selectedEvent.start)}</Typography>
               </Box>
 
               <Box>
                 <Typography variant="overline" color="text.secondary">
-                  Konec výpůjčky
+                  {selectedEvent.source === "club_event"
+                    ? "Konec"
+                    : "Konec výpůjčky"}
                 </Typography>
                 <Typography>{formatDateTime(selectedEvent.end)}</Typography>
               </Box>
@@ -300,13 +355,30 @@ export default function MemberCalendar({
                   <Typography variant="overline" color="text.secondary">
                     Poznámka
                   </Typography>
-                  <Typography>{selectedEvent.description}</Typography>
+                  <Typography sx={{ whiteSpace: "pre-line" }}>
+                    {selectedEvent.description}
+                  </Typography>
                 </Box>
               )}
             </Box>
           )}
         </DialogContent>
         {selectedEvent &&
+          selectedEvent.source === "club_event" &&
+          canDeleteClubEvents && (
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button
+                variant="outlined"
+                color="error"
+                disabled={deletingEvent}
+                onClick={handleDeleteClubEvent}
+              >
+                {deletingEvent ? "Mažu..." : "Smazat událost"}
+              </Button>
+            </DialogActions>
+          )}
+        {selectedEvent &&
+          selectedEvent.source !== "club_event" &&
           (canApproveReservations || canCancelReservations) &&
           ["Requested", "Confirmed", "Canceled", "Rejected"].includes(
             selectedEvent.state

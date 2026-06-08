@@ -6,6 +6,8 @@ import MemberCalendar from "./MemberCalendar";
 
 const NEW_RESERVATION_FORM_URL =
   "https://forms.cloud.microsoft/Pages/ResponsePage.aspx?id=D7ZPjqAN20CQiuMyQ7lNTQ61bM0yBdlCvmC_M9kXlkJURFA0ODYzOElUWlRTOFZZVTU0QTlWNzdUUi4u";
+const NEW_CLUB_EVENT_FORM_URL =
+  "https://technikapraha.sharepoint.com/:l:/s/jachting/JABh-TKT5R-hRbYAok7o50qaATMgn6ck38tfpcyF8vrtkP0?nav=MDM4NWMyNjAtOTkxZC00Mzk0LWFjYzYtMzY0OGVlNjA5YWQ3";
 
 export default function MemberArea() {
   const { session, loading, error, hasCapability, login, logout } = useMemberAuth();
@@ -78,6 +80,17 @@ export default function MemberArea() {
               Nová rezervace
             </Button>
           )}
+          {hasCapability("club_event:create") && (
+            <Button
+              variant="contained"
+              href={NEW_CLUB_EVENT_FORM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              endIcon={<OpenInNewIcon fontSize="small" />}
+            >
+              Nová klubová událost
+            </Button>
+          )}
           <Button variant="outlined" onClick={() => logout(window.location.origin)}>
             Odhlásit
           </Button>
@@ -87,6 +100,7 @@ export default function MemberArea() {
       <MemberCalendar
         canApproveReservations={hasCapability("reservation:approve")}
         canCancelReservations={hasCapability("reservation:cancel")}
+        canDeleteClubEvents={hasCapability("club_event:delete")}
       />
     </Box>
   );
