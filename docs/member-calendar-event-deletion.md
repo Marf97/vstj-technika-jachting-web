@@ -1,5 +1,7 @@
 # Member Calendar Event Deletion Plan
 
+> **Historical design proposal, not a current endpoint specification.** Current code supports admin-only club-event hard deletion via JSON body `action=delete_club_event` and reservation state changes via `action=update_state`. It has no generic `?action=delete` or reservation hard-delete operation. Display IDs are source-prefixed; mutations use the raw `extendedProps.itemId`. See [API](api.md) and [Architecture](architecture.md). The original proposal is retained below for context.
+
 ## Goal
 
 Add a delete action for member calendar events. When a member opens the detail dialog for a calendar event, the dialog should include a button for deleting that event.

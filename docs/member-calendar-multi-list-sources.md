@@ -1,5 +1,7 @@
 # Member Calendar Multi-List Source Plan
 
+> **Historical design proposal, not the current API/configuration reference.** The current endpoint explicitly loads reservation and club-event sources; it does not implement the generic registry or `MEMBER_CALENDAR_SOURCES` settings proposed below. See [Architecture](architecture.md), [Configuration](configuration.md) and [API](api.md) for implemented behavior. The original proposal is retained below for context.
+
 ## Goal
 
 Refactor the member calendar backend so it can fetch events from multiple SharePoint lists, not only the current boat reservation list.
