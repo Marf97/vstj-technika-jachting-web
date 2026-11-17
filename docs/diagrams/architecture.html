@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VŠTJ sailing website — architecture</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:32px;background:#020617;color:#f8fafc;font-family:ui-monospace,Consolas,monospace;line-height:1.6}main{max-width:1200px;margin:auto}h1{font-size:24px;margin-bottom:8px}.subtitle,footer{color:#94a3b8}a{color:#22d3ee}.diagram{margin-top:24px;border:1px solid #334155;border-radius:16px;padding:16px;overflow-x:auto}svg{width:100%;min-width:940px;display:block}svg text{font-family:ui-monospace,Consolas,monospace;fill:#f8fafc;font-size:13px}.sub{fill:#cbd5e1;font-size:11px}.label{fill:#cbd5e1;font-size:11px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:24px}.card{background:#0f172a;border:1px solid #334155;border-radius:12px;padding:20px}.card h2{font-size:16px;margin-top:0}.card p{font-size:13px;color:#cbd5e1}footer{font-size:12px;margin-top:24px}.dot{display:inline-block;width:10px;height:10px;background:#22d3ee;border-radius:50%;margin-right:10px}
+</style>
+</head>
+<body><main>
+<header><h1><span class="dot"></span>VŠTJ Technika · sailing website</h1><p class="subtitle">Current code architecture · browser / PHP boundary / Microsoft services</p><p><a href="../architecture.md">Architecture guide and editable sequence/deployment diagrams</a></p></header>
+<div class="diagram">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" role="img" aria-labelledby="title desc">
+<title id="title">Sailing website architecture and trust boundaries</title>
+<desc id="desc">React calls public and member PHP endpoints. Member endpoints use PHP sessions and Entra OIDC. PHP uses a separate application token to call Graph and SharePoint. Creation links open external forms. Vite emits static assets and PHP; its current environment injection is a security risk.</desc>
+<defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#94a3b8"/></marker></defs>
+<rect width="1120" height="720" fill="url(#grid)"/>
+<rect x="270" y="40" width="470" height="485" rx="12" fill="none" stroke="#fb7185" stroke-dasharray="5 5"/>
+<text x="290" y="65" style="fill:#fb7185">PHP-capable web host · trusted server boundary</text>
+<!-- Connections behind opaque component backgrounds. -->
+<g fill="none" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)">
+<path d="M230 150H300"/><path d="M230 190H260V275H300"/><path d="M230 220H245V405H300"/>
+<path d="M490 275H530"/><path d="M490 405H510V310H530"/><path d="M490 435H530"/>
+<path d="M710 275H790"/><path d="M925 315V360"/>
+<path d="M230 220H255V500H770V560H790"/>
+<path d="M140 595V640H505V525"/>
+</g>
+<g fill="none" stroke="#fb7185" stroke-width="1.5" stroke-dasharray="5 5" marker-end="url(#arrow)">
+<path d="M620 240V150H790"/><path d="M490 380H755V120H790"/>
+</g>
+<text class="label" x="318" y="548">External creation links only — no website create API</text>
+<text class="label" x="725" y="235">App token</text>
+<text class="label" x="535" y="174">Client credentials</text>
+<!-- Frontend -->
+<rect x="30" y="110" width="200" height="145" rx="8" fill="#0f172a"/><rect x="30" y="110" width="200" height="145" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee"/>
+<text x="50" y="140">React browser SPA</text><text class="sub" x="50" y="166">News / Gallery / Boats</text><text class="sub" x="50" y="188">MemberArea + Calendar</text><text class="sub" x="50" y="210">auth.ts / graph.ts</text><text class="sub" x="50" y="235">No backend credentials</text>
+<!-- Host components -->
+<rect x="300" y="110" width="190" height="70" rx="6" fill="#0f172a"/><rect x="300" y="110" width="190" height="70" rx="6" fill="rgba(8,51,68,.4)" stroke="#22d3ee"/><text x="316" y="136">Static assets</text><text class="sub" x="316" y="159">SPA + local Markdown</text>
+<rect x="300" y="240" width="190" height="75" rx="6" fill="#0f172a"/><rect x="300" y="240" width="190" height="75" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="316" y="267">Public PHP APIs</text><text class="sub" x="316" y="290">news.php / gallery.php</text>
+<rect x="300" y="365" width="190" height="95" rx="6" fill="#0f172a"/><rect x="300" y="365" width="190" height="95" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="316" y="391">Member PHP APIs</text><text class="sub" x="316" y="414">auth.php / OIDC</text><text class="sub" x="316" y="437">member-calendar.php</text>
+<rect x="530" y="240" width="180" height="75" rx="6" fill="#0f172a"/><rect x="530" y="240" width="180" height="75" rx="6" fill="rgba(6,78,59,.4)" stroke="#34d399"/><text x="546" y="267">Auth + GraphAPI</text><text class="sub" x="546" y="290">App-only Graph access</text>
+<rect x="530" y="390" width="180" height="70" rx="6" fill="#0f172a"/><rect x="530" y="390" width="180" height="70" rx="6" fill="rgba(136,19,55,.4)" stroke="#fb7185"/><text x="546" y="417">PHP session</text><text class="sub" x="546" y="440">Roles + capabilities</text>
+<!-- External services -->
+<rect x="790" y="85" width="270" height="95" rx="6" fill="#0f172a"/><rect x="790" y="85" width="270" height="95" rx="6" fill="rgba(136,19,55,.4)" stroke="#fb7185"/><text x="808" y="113">Microsoft Entra ID</text><text class="sub" x="808" y="137">OIDC code + PKCE for login</text><text class="sub" x="808" y="160">Separate application token flow</text>
+<rect x="790" y="240" width="270" height="75" rx="6" fill="#0f172a"/><rect x="790" y="240" width="270" height="75" rx="6" fill="rgba(120,53,15,.3)" stroke="#fbbf24"/><text x="808" y="268">Microsoft Graph</text><text class="sub" x="808" y="291">PHP reads / PATCH / DELETE</text>
+<rect x="790" y="360" width="270" height="100" rx="6" fill="#0f172a"/><rect x="790" y="360" width="270" height="100" rx="6" fill="rgba(76,29,149,.4)" stroke="#a78bfa"/><text x="808" y="387">SharePoint</text><text class="sub" x="808" y="411">Public news + gallery folders</text><text class="sub" x="808" y="436">Reservation + club-event lists</text>
+<rect x="790" y="530" width="270" height="65" rx="6" fill="#0f172a"/><rect x="790" y="530" width="270" height="65" rx="6" fill="rgba(30,41,59,.5)" stroke="#94a3b8"/><text x="808" y="555">External creation forms</text><text class="sub" x="808" y="578">Automation not in this repository</text>
+<rect x="30" y="530" width="220" height="65" rx="6" fill="#0f172a"/><rect x="30" y="530" width="220" height="65" rx="6" fill="rgba(120,53,15,.3)" stroke="#fbbf24"/><text x="46" y="555">Vite build → dist</text><text class="sub" x="46" y="578">Static assets + PHP tree</text>
+<!-- Legend outside all trust boundaries. -->
+<text x="30" y="685" style="fill:#22d3ee">Frontend</text><text x="160" y="685" style="fill:#34d399">Backend</text><text x="280" y="685" style="fill:#fb7185">Security / dashed auth flow</text><text x="585" y="685" style="fill:#a78bfa">Storage</text><text x="705" y="685" style="fill:#fbbf24">Cloud / build</text><text x="900" y="685" style="fill:#94a3b8">External</text>
+</svg></div>
+<section class="cards" aria-label="Architecture notes">
+<article class="card"><h2>Two identity flows</h2><p>Member identity uses OIDC and a cookie session. SharePoint access uses a separate application token. PHP must enforce membership and action capabilities before exposing data or writing lists.</p></article>
+<article class="card"><h2>Deployment constraint</h2><p>Static hosting alone is insufficient. Vite preview does not execute PHP. Compose currently serves the development backend, not a built production frontend.</p></article>
+<article class="card"><h2>Build safety warning</h2><p>The current Vite plugin embeds PHP env-file values and the build process environment into emitted PHP. Build in an isolated minimal environment and treat output as sensitive.</p></article>
+</section>
+<footer>Source map: src/App.jsx · src/lib/* · php/endpoints/* · php/core/* · vite.config.js. This is a source architecture, not a verified production infrastructure inventory. Maintain alongside architecture.md.</footer>
+</main></body></html>
